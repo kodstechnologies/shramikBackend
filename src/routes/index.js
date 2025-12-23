@@ -22,6 +22,8 @@ import notificationRoutes from "../firebase/notification.routes.js";
 import jobSeekerPaymentRoutes from "./jobSeeker/payment.routes.js";
 import recruiterPaymentRoutes from "./recruiter/payment.routes.js";
 
+import feedbackRoutes from "./feedback/feedback.routes.js";
+
 const router = Router();
 
 router.get("/", (req, res) => {
@@ -62,6 +64,10 @@ router.use("/api/notifications", notificationRoutes);
 //payment routes
 router.use("/api/job-seekers/payment", jobSeekerPaymentRoutes);
 router.use("/api/recruiters/payment", recruiterPaymentRoutes);
+
+// Feedback routes (JobSeeker + Admin)
+router.use("/api/feedback", feedbackRoutes);
+
 
 
 export default router;

@@ -202,6 +202,12 @@ const jobSeekerSchema = new Schema(
       default: null,
       select: false, // Don't include in queries by default (security)
     },
+
+    // JobSeeker schema (add near status fields)
+    isFeedbackBlocked: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
