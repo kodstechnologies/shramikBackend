@@ -1,5 +1,5 @@
-;
-
+// import { getAppFeedbackCategories } from "../../controllers/feedback/appFeedbackCategory.controller.js";
+import { getAppFeedbackCategories } from "../../controllers/feedback/appFeedbackCategory.controller.js";
 // export default router;
 import { Router } from "express";
 
@@ -80,6 +80,12 @@ router.delete(
     "/admin/:id",
     verifyJWT(["Admin"]),
     deleteFeedback
+);
+
+router.get(
+    "/app/categories",
+    verifyJobSeekerJWT, 
+    getAppFeedbackCategories
 );
 
 export default router;
