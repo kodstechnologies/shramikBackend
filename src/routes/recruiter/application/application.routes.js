@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getJobsWithApplications,
   getJobApplicants,
+  getApplicantFilterOptions,
   shortlistApplicant,
   rejectApplicant,
   getJobsWithShortlistedCandidates,
@@ -29,6 +30,15 @@ router.get("/jobs/applications", verifyRecruiterJWT, getJobsWithApplications);
 
 router.get("/applications/shortlisted", verifyRecruiterJWT, getAllShortlistedCandidates);
 router.get("/jobs/:jobId/applicants", verifyRecruiterJWT, getJobApplicants);
+
+/**
+ * GET /api/recruiters/jobs/:jobId/filter-options
+ * Get dynamic filter options (cities, genders, experience, age ranges) based on actual applicants
+ * Returns only values that exist among applicants for this job
+ * Requires: Recruiter authentication (JWT token)
+ */
+router.get("/jobs/:jobId/filter-options", verifyRecruiterJWT, getApplicantFilterOptions);
+
 router.get(
   "/jobs/with-shortlisted",
   verifyRecruiterJWT,

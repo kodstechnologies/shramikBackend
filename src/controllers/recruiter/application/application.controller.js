@@ -361,6 +361,141 @@ export const getJobApplicants = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Get Dynamic Filter Options for Job Applicants (Recruiter)
+ * Returns only the filter values that exist among applicants for a specific job
+ * This helps the frontend show only relevant filter options
+ * Requires: Recruiter authentication (JWT token)
+ */
+export const getApplicantFilterOptions = asyncHandler(async (req, res) => {
+  const recruiter = req.recruiter;
+  const { jobId } = req.params;
+
+  // Validate job ID
+  if (!mongoose.Types.ObjectId.isValid(jobId)) {
+    throw new ApiError(400, "Invalid job ID format");
+  }
+
+  // Verify job exists and belongs to this recruiter
+  const job = await RecruiterJob.findById(jobId);
+  if (!job) {
+    throw new ApiError(404, "Job not found");
+  }
+
+  if (job.recruiter.toString() !== recruiter._id.toString()) {
+    throw new ApiError(403, "You are not authorized to view this job");
+  }
+
+  // Get all applications for this job (excluding withdrawn)
+  const applications = await Application.find({
+    job: jobId,
+    status: { $ne: "Withdrawn" }
+  })
+    .populate({
+      path: "jobSeeker",
+      select: "city state gender dateOfBirth experienceStatus"
+    })
+    .lean();
+
+  // Extract unique values from applicants
+  const cities = new Set();
+  const states = new Set();
+  const genders = new Set();
+  const experienceLevels = new Set();
+  const ageRanges = new Set();
+
+  // Helper function to calculate age
+  const calculateAge = (dateOfBirth) => {
+    if (!dateOfBirth) return null;
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Helper function to get age range label
+  const getAgeRange = (age) => {
+    if (age === null) return null;
+    if (age < 18) return null; // Skip invalid ages
+    if (age <= 25) return "18-25";
+    if (age <= 35) return "26-35";
+    if (age <= 45) return "36-45";
+    return "46+";
+  };
+
+  // Process each application
+  applications.forEach((app) => {
+    const jobSeeker = app.jobSeeker;
+    if (!jobSeeker) return;
+
+    // City
+    if (jobSeeker.city) {
+      cities.add(jobSeeker.city);
+    }
+
+    // State
+    if (jobSeeker.state) {
+      states.add(jobSeeker.state);
+    }
+
+    // Gender
+    if (jobSeeker.gender) {
+      genders.add(jobSeeker.gender);
+    }
+
+    // Experience
+    if (jobSeeker.experienceStatus) {
+      experienceLevels.add(jobSeeker.experienceStatus);
+    }
+
+    // Age Range
+    const age = calculateAge(jobSeeker.dateOfBirth);
+    const ageRange = getAgeRange(age);
+    if (ageRange) {
+      ageRanges.add(ageRange);
+    }
+  });
+
+  // Sort and format the arrays
+  const sortedCities = Array.from(cities).sort();
+  const sortedStates = Array.from(states).sort();
+  const sortedGenders = Array.from(genders).sort();
+
+  // Sort experience levels in logical order
+  const experienceOrder = ["Fresher", "1-3 years", "4-7 years", "8+ years"];
+  const sortedExperience = Array.from(experienceLevels).sort((a, b) => {
+    const indexA = experienceOrder.indexOf(a);
+    const indexB = experienceOrder.indexOf(b);
+    return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+  });
+
+  // Sort age ranges in logical order
+  const ageOrder = ["18-25", "26-35", "36-45", "46+"];
+  const sortedAgeRanges = Array.from(ageRanges).sort((a, b) => {
+    return ageOrder.indexOf(a) - ageOrder.indexOf(b);
+  });
+
+  return res.status(200).json(
+    ApiResponse.success(
+      {
+        totalApplicants: applications.length,
+        filters: {
+          cities: sortedCities,
+          states: sortedStates,
+          genders: sortedGenders,
+          experience: sortedExperience,
+          ageRanges: sortedAgeRanges
+        }
+      },
+      "Filter options fetched successfully"
+    )
+  );
+});
+
+/**
  * Shortlist an Applicant (Recruiter)
  * Updates the application status to "Shortlisted"
  * Requires: Recruiter authentication (JWT token)
