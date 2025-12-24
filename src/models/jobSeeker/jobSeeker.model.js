@@ -203,11 +203,14 @@ const jobSeekerSchema = new Schema(
       select: false, // Don't include in queries by default (security)
     },
 
-    // JobSeeker schema (add near status fields)
-    isFeedbackBlocked: {
-      type: Boolean,
-      default: false,
-    },
+
+    // Add this for Targeted Blocking
+    blockedJobsFromFeedback: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "RecruiterJob"
+      }
+    ],
   },
   {
     timestamps: true,

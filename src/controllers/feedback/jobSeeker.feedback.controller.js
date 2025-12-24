@@ -1,3 +1,85 @@
+
+//     console.log("📩 [Feedback] Submit request received");
+
+//     const {
+//         appCategory,
+//         appSubCategory,
+//         jobId,
+//         jobSubCategory,
+//         message,
+//         rating,
+//     } = req.body;
+
+//     const jobSeekerId = req.jobSeeker?._id;
+
+//     console.log("👤 [Feedback] JobSeeker ID:", jobSeekerId);
+
+//     console.log("📥 [Feedback] Payload snapshot:", {
+//         appCategory,
+//         appSubCategory,
+//         jobId,
+//         jobSubCategory,
+//         rating,
+//         messageLength: message?.length,
+//     });
+
+//     // 🔐 Validate job feedback only if jobId exists
+//     if (jobId) {
+//         console.log("🔎 [Feedback] Job ID provided, validating application:", jobId);
+
+//         const applied = await Application.findOne({
+//             job: jobId,
+//             jobSeeker: jobSeekerId,
+//         }).lean();
+
+//         if (!applied) {
+//             console.warn("🚫 [Feedback] Job feedback rejected — job not applied", {
+//                 jobId,
+//                 jobSeekerId,
+//             });
+
+//             throw new ApiError(
+//                 403,
+//                 "You can only submit feedback for jobs you have applied for"
+//             );
+//         }
+
+//         console.log("✅ [Feedback] Application found for job feedback");
+//     } else {
+//         console.log("ℹ️ [Feedback] No jobId provided — app/general feedback");
+//     }
+
+//     const feedbackData = {
+//         jobSeeker: jobSeekerId,
+
+//         job: jobId || undefined,
+
+//         // App feedback
+//         appCategory: appCategory || null,
+//         appSubCategory: appSubCategory || null,
+
+//         // Job feedback
+//         jobSubCategory: jobSubCategory || null,
+
+//         message,
+//         rating,
+//     };
+
+//     console.log("📝 [Feedback] Final data before save:", feedbackData);
+
+//     const feedback = await Feedback.create(feedbackData);
+
+//     console.log("✅ [Feedback] Feedback saved successfully", {
+//         feedbackId: feedback._id,
+//         createdAt: feedback.createdAt,
+//     });
+
+//     res.status(201).json({
+//         success: true,
+//         message: "Feedback submitted successfully",
+//         data: feedback,
+//     });
+// });
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { Feedback } from "../../models/jobSeeker/feedback.model.js";
 import { Application } from "../../models/jobSeeker/application.model.js";
@@ -15,18 +97,20 @@ export const submitFeedback = asyncHandler(async (req, res) => {
         rating,
     } = req.body;
 
-    const jobSeekerId = req.jobSeeker?._id;
+    const jobSeeker = req.jobSeeker; // Get the full user object from middleware
+    const jobSeekerId = jobSeeker?._id;
 
     console.log("👤 [Feedback] JobSeeker ID:", jobSeekerId);
 
-    console.log("📥 [Feedback] Payload snapshot:", {
-        appCategory,
-        appSubCategory,
-        jobId,
-        jobSubCategory,
-        rating,
-        messageLength: message?.length,
-    });
+    // 1. 🛡️ TARGETED BLOCK CHECK
+    // Logic: Check if the current jobId is in the user's blockedJobs array
+    if (jobId && jobSeeker?.blockedJobs?.includes(jobId)) {
+        console.warn(`🚫 [Feedback] Submission blocked for JobSeeker ${jobSeekerId} on Job ${jobId}`);
+        throw new ApiError(
+            403,
+            "Blocked: You are restricted from sending feedback for this specific job."
+        );
+    }
 
     // 🔐 Validate job feedback only if jobId exists
     if (jobId) {
@@ -56,16 +140,10 @@ export const submitFeedback = asyncHandler(async (req, res) => {
 
     const feedbackData = {
         jobSeeker: jobSeekerId,
-
         job: jobId || undefined,
-
-        // App feedback
         appCategory: appCategory || null,
         appSubCategory: appSubCategory || null,
-
-        // Job feedback
         jobSubCategory: jobSubCategory || null,
-
         message,
         rating,
     };

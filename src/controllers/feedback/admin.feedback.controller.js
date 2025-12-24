@@ -1,124 +1,154 @@
-import ApiError from "../../utils/ApiError.js";
-import { asyncHandler } from "../../utils/asyncHandler.js";
 import { Feedback } from "../../models/jobSeeker/feedback.model.js";
+import { JobSeeker } from "../../models/jobSeeker/jobSeeker.model.js";
+import { asyncHandler } from "../../utils/asyncHandler.js";
+import ApiError from "../../utils/ApiError.js";
+import mongoose from "mongoose";
 
 /**
- * Get all feedback (exclude blocked)
+ * API 1: Get & Analytics API
+ * GET /admin?type=...&category=...&job_id=...
  */
 export const getAllFeedback = asyncHandler(async (req, res) => {
-    console.log("📋 [Admin][Feedback] Get all feedback API called");
+    const { page = 1, limit = 10, type, category, job_id } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const query = {
-        $or: [
-            { isBlocked: false },
-            { isBlocked: { $exists: false } }
-        ]
-    };
+    console.log(`🔍 [AdminFeedback] Fetching feedback - Page: ${page}, Limit: ${limit}`);
 
-    console.log("🔍 [Admin][Feedback] Query:", query);
-
-    const feedbacks = await Feedback.find(query)
-        .populate("jobSeeker", "name phone")
-        .sort({ createdAt: -1 });
-
-    console.log("✅ [Admin][Feedback] Feedback fetched:", feedbacks.length);
-
-    if (feedbacks.length > 0) {
-        console.log(
-            "🧾 [Admin][Feedback] Sample feedback ID:",
-            feedbacks[0]._id
-        );
+    // Build Dynamic Filter
+    let filter = {};
+    if (type === "Job Feedback") filter.job = { $exists: true };
+    if (type === "App Feedback") filter.job = { $exists: false };
+    if (category) filter.appCategory = category;
+    if (job_id) {
+        if (!mongoose.Types.ObjectId.isValid(job_id)) throw new ApiError(400, "Invalid Job ID format");
+        filter.job = new mongoose.Types.ObjectId(job_id);
     }
 
-    res.json({ success: true, data: feedbacks });
+    console.log("🛠️ [AdminFeedback] Active Filters:", JSON.stringify(filter));
+
+    const results = await Feedback.aggregate([
+        { $match: filter },
+        {
+            $facet: {
+                metadata: [
+                    { $group: { _id: null, total_count: { $sum: 1 }, averageRating: { $avg: "$rating" } } }
+                ],
+                data: [
+                    { $sort: { createdAt: -1 } },
+                    { $skip: skip },
+                    { $limit: parseInt(limit) },
+                    {
+                        $lookup: {
+                            from: "jobseekers",
+                            localField: "jobSeeker",
+                            foreignField: "_id",
+                            as: "jobSeekerDetails"
+                        }
+                    },
+                    { $unwind: { path: "$jobSeekerDetails", preserveNullAndEmptyArrays: true } }
+                ]
+            }
+        }
+    ]);
+
+    const analytics = results[0].metadata[0] || { total_count: 0, averageRating: 0 };
+
+    console.log(`✅ [AdminFeedback] Found ${analytics.total_count} records. Avg Rating: ${analytics.averageRating}`);
+
+    res.status(200).json({
+        success: true,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total_count: analytics.total_count,
+        average_rating: analytics.averageRating?.toFixed(2) || 0,
+        data: results[0].data
+    });
 });
 
+/**
+ * API 2: Delete API
+ * DELETE /admin/:id
+ */
+export const deleteFeedback = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    console.log(`🗑️ [AdminFeedback] Attempting to delete feedback ID: ${id}`);
+
+    const feedback = await Feedback.findByIdAndDelete(id);
+
+    if (!feedback) {
+        console.error(`❌ [AdminFeedback] Delete failed: Feedback ${id} not found`);
+        throw new ApiError(404, "Feedback not found");
+    }
+
+    console.log(`✅ [AdminFeedback] Feedback ${id} deleted successfully`);
+    res.status(200).json({ success: true, message: "Feedback entry removed" });
+});
 
 /**
- * Reply to feedback
+ * API 3: Response API
+ * PATCH /admin/:id/reply
  */
 export const replyToFeedback = asyncHandler(async (req, res) => {
+    const { id } = req.params;
     const { adminReply, status } = req.body;
-    const feedbackId = req.params.id;
 
-    console.log("💬 [Admin][Feedback] Reply request", {
-        feedbackId,
-        status,
-        replyLength: adminReply?.length,
-    });
+    // Validation for status: Default to REPLIED if not provided, but allow RESOLVED
+    const validStatuses = ["PENDING", "REPLIED", "RESOLVED"];
+    const updatedStatus = status && validStatuses.includes(status) ? status : "REPLIED";
+
+    console.log(`💬 [AdminFeedback] Replying to ${id}. New Status: ${updatedStatus}`);
 
     const feedback = await Feedback.findByIdAndUpdate(
-        feedbackId,
-        { adminReply, status },
-        { new: true }
+        id,
+        {
+            adminReply,
+            status: updatedStatus
+        },
+        { new: true, runValidators: true }
     );
 
     if (!feedback) {
-        console.error("❌ [Admin][Feedback] Feedback not found:", feedbackId);
+        console.error(`❌ [AdminFeedback] Reply failed: Feedback ${id} not found`);
         throw new ApiError(404, "Feedback not found");
     }
 
-    console.log("✅ [Admin][Feedback] Reply saved:", feedback._id);
+    console.log(`✅ [AdminFeedback] Reply saved for ${id}. Status is now ${feedback.status}`);
 
-    res.json({
+    res.status(200).json({
         success: true,
-        message: "Feedback replied successfully",
-        data: feedback,
+        message: `Feedback marked as ${feedback.status}`,
+        data: feedback
     });
 });
 
 /**
- * Toggle block / unblock feedback
+ * API 4: Targeted Block API
+ * POST /admin/block-target
  */
-export const toggleFeedbackBlock = asyncHandler(async (req, res) => {
-    const feedbackId = req.params.id;
-    console.log("🚫 [Admin][Feedback] Toggle block request:", feedbackId);
+export const targetBlockJobseeker = asyncHandler(async (req, res) => {
+    const { jobSeekerId, jobId } = req.body;
 
-    const feedback = await Feedback.findById(feedbackId);
+    console.log(`🚫 [AdminFeedback] Blocking JobSeeker ${jobSeekerId} from Job ${jobId}`);
 
-    if (!feedback) {
-        console.error("❌ [Admin][Feedback] Feedback not found:", feedbackId);
-        throw new ApiError(404, "Feedback not found");
+    if (!jobSeekerId || !jobId) {
+        throw new ApiError(400, "JobSeekerId and JobId are required for blocking");
     }
 
-    feedback.isBlocked = !feedback.isBlocked;
-    await feedback.save();
+    const jobSeeker = await JobSeeker.findByIdAndUpdate(
+        jobSeekerId,
+        { $addToSet: { blockedJobs: jobId } },
+        { new: true }
+    );
 
-    console.log("✅ [Admin][Feedback] Block status updated:", {
-        feedbackId: feedback._id,
-        isBlocked: feedback.isBlocked,
-    });
-
-    res.json({
-        success: true,
-        message: feedback.isBlocked
-            ? "Feedback blocked successfully"
-            : "Feedback unblocked successfully",
-        data: {
-            id: feedback._id,
-            isBlocked: feedback.isBlocked,
-        },
-    });
-});
-
-/**
- * Delete feedback
- */
-export const deleteFeedback = asyncHandler(async (req, res) => {
-    const feedbackId = req.params.id;
-    console.log("🗑️ [Admin][Feedback] Delete request:", feedbackId);
-
-    const deleted = await Feedback.findByIdAndDelete(feedbackId);
-
-    if (!deleted) {
-        console.error("❌ [Admin][Feedback] Feedback not found:", feedbackId);
-        throw new ApiError(404, "Feedback not found");
+    if (!jobSeeker) {
+        console.error(`❌ [AdminFeedback] Block failed: JobSeeker ${jobSeekerId} not found`);
+        throw new ApiError(404, "JobSeeker not found");
     }
 
-    console.log("✅ [Admin][Feedback] Feedback deleted:", feedbackId);
+    console.log(`✅ [AdminFeedback] User ${jobSeekerId} successfully restricted from Job ${jobId}`);
 
-    res.json({
+    res.status(200).json({
         success: true,
-        message: "Feedback deleted",
+        message: "JobSeeker blocked from sending feedback to this specific job"
     });
 });

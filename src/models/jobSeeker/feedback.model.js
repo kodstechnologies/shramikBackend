@@ -19,35 +19,24 @@ const feedbackSchema = new Schema(
             index: true,
         },
 
-        // 🔹 App feedback
         appCategory: {
             type: String,
             enum: [
                 "APP_PERFORMANCE",
                 "UI_UX",
+                "JOB_SEARCH",
+                "JOB_APPLY_ISSUE",
                 "PAYMENT",
-                "SERVICE_BOOKING",
+                "NOTIFICATION_ISSUE",
                 "BUG_REPORT",
                 "FEATURE_REQUEST",
+                "TRUST_SAFETY",
                 "OTHER",
             ],
-            default: null,
+            required: false,
         },
 
-        appSubCategory: {
-            type: String,
-            trim: true,
-            default: null,
-            // e.g. SLOW_APP, CRASH, PAYMENT_FAILED
-        },
 
-        // 🔹 Job feedback
-        jobSubCategory: {
-            type: String,
-            trim: true,
-            default: null,
-            // e.g. SCAM, FAKE_JOB, MISLEADING_INFO
-        },
 
         message: {
             type: String,
