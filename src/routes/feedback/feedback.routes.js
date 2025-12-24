@@ -20,7 +20,9 @@ import {
     getAllFeedback,
     replyToFeedback,
     deleteFeedback,
-    targetBlockJobseeker, // API 4
+    targetBlockRecruiter,
+    getRecruiterWithJobs,
+    blockJobPost,
 } from "../../controllers/feedback/admin.feedback.controller.js";
 
 const router = Router();
@@ -38,12 +40,12 @@ router.post(
 );
 
 /* =====================================================
-   ADMIN FEEDBACK APIs (The 4 Requirements)
+   ADMIN FEEDBACK APIs
 ===================================================== */
 
 /**
  * API 1: Get & Analytics API
- * Supports filters: ?type=...&category=...&job_id=...
+ * Supports filters: ?type=...&category=...&job_id=...&status=...
  */
 router.get(
     "/admin",
@@ -63,13 +65,33 @@ router.patch(
 );
 
 /**
- * API 4: Targeted Block API
- * Blocks a specific user from a specific job
+ * API 4: Block Recruiter
+ * Blocks the Recruiter who posted the problematic job
  */
 router.post(
-    "/admin/block-target",
+    "/admin/block-recruiter",
     verifyJWT(["Admin"]),
-    targetBlockJobseeker
+    targetBlockRecruiter
+);
+
+/**
+ * API 5: Get Recruiter With Jobs
+ * Returns recruiter details + their job posts
+ */
+router.get(
+    "/admin/recruiter/:recruiterId/jobs",
+    verifyJWT(["Admin"]),
+    getRecruiterWithJobs
+);
+
+/**
+ * API 6: Block Job Post
+ * Closes/blocks a specific job post
+ */
+router.post(
+    "/admin/block-job",
+    verifyJWT(["Admin"]),
+    blockJobPost
 );
 
 /**
@@ -84,8 +106,9 @@ router.delete(
 
 router.get(
     "/app/categories",
-    verifyJobSeekerJWT, 
+    verifyJobSeekerJWT,
     getAppFeedbackCategories
 );
 
 export default router;
+

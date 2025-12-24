@@ -2,7 +2,7 @@ import { Admin } from "../models/users.model.js";
 
 export const seedDefaultAdmin = async () => {
   const defaultAdmin = {
-    name: "Default Admin",
+    name: "Admin",
     email: "admin@gmail.com",
     phone: "0000000000",
     password: "admin",
