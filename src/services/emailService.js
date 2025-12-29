@@ -245,7 +245,7 @@ class EmailService {
     }
 
     /**
-     * Verify email configuration
+     * Verify email Configuration
      */
     async verifyConnection() {
         if (!this.transporter) {
