@@ -858,6 +858,7 @@ export const getCategories = asyncHandler(async (req, res) => {
 
   // Format for frontend compatibility
   const formattedCategories = categories.map((cat) => ({
+    _id: cat._id,
     value: cat.name,
     label: cat.name,
     description: cat.description || "",

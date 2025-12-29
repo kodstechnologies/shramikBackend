@@ -69,12 +69,12 @@ export const createRecruiterJobSchema = Joi.object({
     "any.only": "Job type must be one of: Full Time, Part Time, Contract Based",
   }),
   employmentMode: Joi.string().valid("Onsite", "Remote", "Hybrid").default("Onsite"),
-  jobSeekerCategory: Joi.string()
-    .valid("Non-Degree Holder", "Diploma Holder", "ITI Holder")
+  jobSeekerCategoryId: Joi.string()
+    .regex(/^[0-9a-fA-F]{24}$/)
     .required()
     .messages({
-      "any.required": "Job seeker category is required",
-      "any.only": "Job seeker category must be one of: Non-Degree Holder, Diploma Holder, ITI Holder",
+      "any.required": "Job seeker category ID is required",
+      "string.pattern.base": "Job seeker category ID must be a valid MongoDB ObjectId",
     }),
   categories: Joi.alternatives()
     .try(stringArray.min(1), Joi.string().trim().min(1))

@@ -11,6 +11,7 @@ import { deductCoins, checkCoinBalance } from "../../../services/coin/coinServic
 import { JobSeeker } from "../../../models/jobSeeker/jobSeeker.model.js";
 import { fcmService } from "../../../firebase/fcm.service.js";
 import Notification from "../../../firebase/notification.model.js";
+import { Category } from "../../../models/category/category.model.js";
 
 const normalizeArray = (value) => {
   if (!value) return [];
@@ -115,7 +116,7 @@ export const createRecruiterJob = asyncHandler(async (req, res) => {
     vacancyCount,
     jobType,
     employmentMode,
-    jobSeekerCategory,
+    jobSeekerCategoryId,
     categories,
     tags,
     skills,
@@ -128,6 +129,25 @@ export const createRecruiterJob = asyncHandler(async (req, res) => {
     responsibilities = [],
     aboutCompany = {},
   } = req.body;
+
+  // Look up jobSeekerCategory by ID
+  if (!jobSeekerCategoryId) {
+    throw new ApiError(400, "jobSeekerCategoryId is required");
+  }
+
+  const category = await Category.findById(jobSeekerCategoryId).lean();
+  if (!category) {
+    throw new ApiError(404, "Job Seeker Category not found");
+  }
+
+  // Use the category name for the jobSeekerCategory field
+  const jobSeekerCategory = category.name;
+
+  // Validate that the category name matches the allowed enum values
+  const validCategories = ["Non-Degree Holder", "Diploma Holder", "ITI Holder"];
+  if (!validCategories.includes(jobSeekerCategory)) {
+    throw new ApiError(400, `Invalid job seeker category. Must be one of: ${validCategories.join(", ")}`);
+  }
 
   const normalizedCategories = normalizeArray(categories);
   const normalizedTags = normalizeArray(tags);
@@ -1082,7 +1102,7 @@ export const repostJob = asyncHandler(async (req, res) => {
   // Fetch coin cost for job posting (per vacancy)
   const coinRule = await CoinRule.findOne({ category: "recruiter" });
   const coinCostPerJobPost = coinRule?.coinCostPerJobPost || 0;
-  
+
   // Calculate total coin cost based on vacancy count
   const totalCoinCost = coinCostPerJobPost * finalVacancyCount;
 
