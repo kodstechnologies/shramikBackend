@@ -195,6 +195,11 @@ const recruiterJobSchema = new Schema(
       min: 1,
       default: 1,
     },
+    isBlocked: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   {
     timestamps: true,

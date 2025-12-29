@@ -4,6 +4,7 @@ import {
     getTopJobSeekers,
     getJobSeekerCategories,
     getAllJobSeekers,
+    getJobSeekerDetails,
     blockJobSeeker,
     unblockJobSeeker,
 } from "../../../controllers/admin/jobSeeker/jobSeeker.controller.js";
@@ -50,6 +51,14 @@ router.get("/all", getAllJobSeekers);
  * @access  Admin
  */
 router.get("/categories", getJobSeekerCategories);
+
+/**
+ * @route   GET /api/admin/job-seekers/:id/details
+ * @desc    Get job seeker details with all their applications
+ * @access  Admin
+ * @param   id - Job Seeker ID
+ */
+router.get("/:id/details", getJobSeekerDetails);
 
 /**
  * @route   POST /api/admin/job-seekers/:id/block

@@ -3,8 +3,11 @@ import {
     getRecruiterStats,
     getRecruiterActivity,
     getAllRecruiters,
+    getRecruiterDetails,
     blockRecruiter,
     unblockRecruiter,
+    blockJob,
+    unblockJob,
 } from "../../../controllers/admin/recruiter/recruiter.controller.js";
 import { verifyJWT } from "../../../middlewares/authMiddleware.js";
 
@@ -42,6 +45,14 @@ router.get("/activity", getRecruiterActivity);
 router.get("/all", getAllRecruiters);
 
 /**
+ * @route   GET /api/admin/recruiters/:id/details
+ * @desc    Get recruiter details with all their jobs
+ * @access  Admin
+ * @param   id - Recruiter ID
+ */
+router.get("/:id/details", getRecruiterDetails);
+
+/**
  * @route   POST /api/admin/recruiters/:id/block
  * @desc    Block a recruiter
  * @access  Admin
@@ -55,5 +66,19 @@ router.post("/:id/block", blockRecruiter);
  * @access  Admin
  */
 router.post("/:id/unblock", unblockRecruiter);
+
+/**
+ * @route   POST /api/admin/recruiters/jobs/:jobId/block
+ * @desc    Block a job
+ * @access  Admin
+ */
+router.post("/jobs/:jobId/block", blockJob);
+
+/**
+ * @route   POST /api/admin/recruiters/jobs/:jobId/unblock
+ * @desc    Unblock a job
+ * @access  Admin
+ */
+router.post("/jobs/:jobId/unblock", unblockJob);
 
 export default router;

@@ -403,6 +403,88 @@ export const getJobSeekerCategories = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Get Job Seeker Details with Applications
+ * Fetches complete job seeker profile and all their job applications
+ */
+export const getJobSeekerDetails = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    // Get job seeker details
+    const jobSeeker = await JobSeeker.findById(id)
+        .select("-password -refreshToken -fcmTokens")
+        .populate("specializationId", "name")
+        .lean();
+
+    if (!jobSeeker) {
+        return res.status(404).json(
+            ApiResponse.error("Job Seeker not found")
+        );
+    }
+
+    // Get all applications by this job seeker with job details
+    const applications = await Application.find({ jobSeeker: id })
+        .populate({
+            path: "job",
+            select: "jobTitle jobType city status expectedSalary recruiter companySnapshot createdAt",
+            populate: {
+                path: "recruiter",
+                select: "companyName name"
+            }
+        })
+        .sort({ createdAt: -1 })
+        .lean();
+
+    // Format applications for response
+    const formattedApplications = applications.map(app => ({
+        _id: app._id,
+        status: app.status,
+        appliedAt: app.createdAt,
+        job: app.job ? {
+            _id: app.job._id,
+            jobTitle: app.job.jobTitle,
+            jobType: app.job.jobType,
+            city: app.job.city,
+            jobStatus: app.job.status,
+            salary: app.job.expectedSalary ? {
+                min: app.job.expectedSalary.min,
+                max: app.job.expectedSalary.max,
+                currency: app.job.expectedSalary.currency || "INR",
+            } : null,
+            company: app.job.recruiter?.companyName || app.job.companySnapshot?.name || "Unknown Company",
+            postedAt: app.job.createdAt,
+        } : null,
+    })).filter(app => app.job !== null);
+
+    // Format job seeker response
+    const formattedJobSeeker = {
+        _id: jobSeeker._id,
+        name: jobSeeker.name || "Unknown",
+        phone: jobSeeker.phone,
+        email: jobSeeker.email,
+        gender: jobSeeker.gender,
+        category: jobSeeker.category,
+        specialization: jobSeeker.specializationId?.name || "Not specified",
+        status: jobSeeker.status,
+        isBlocked: jobSeeker.isBlocked || false,
+        profilePhoto: jobSeeker.profilePhoto,
+        coinBalance: jobSeeker.coinBalance || 0,
+        createdAt: jobSeeker.createdAt,
+        updatedAt: jobSeeker.updatedAt,
+    };
+
+    return res.status(200).json(
+        ApiResponse.success(
+            {
+                jobSeeker: formattedJobSeeker,
+                applications: formattedApplications,
+                totalApplications: formattedApplications.length,
+            },
+            "Job Seeker details fetched successfully"
+        )
+    );
+});
+
+/**
  * Block a Job Seeker
  */
 export const blockJobSeeker = asyncHandler(async (req, res) => {

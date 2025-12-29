@@ -407,6 +407,77 @@ export const getAllRecruiters = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Get Recruiter Details with Jobs
+ * Fetches complete recruiter profile and all their posted jobs
+ */
+export const getRecruiterDetails = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    // Get recruiter details
+    const recruiter = await Recruiter.findById(id)
+        .select("-password -refreshToken -fcmTokens")
+        .lean();
+
+    if (!recruiter) {
+        return res.status(404).json(
+            ApiResponse.error("Recruiter not found")
+        );
+    }
+
+    // Get all jobs by this recruiter
+    const jobs = await RecruiterJob.find({ recruiter: id })
+        .select("jobTitle jobType city status applicationCount vacancyCount expectedSalary isBlocked createdAt updatedAt")
+        .sort({ createdAt: -1 })
+        .lean();
+
+    // Format jobs for response
+    const formattedJobs = jobs.map(job => ({
+        _id: job._id,
+        jobTitle: job.jobTitle,
+        jobType: job.jobType,
+        city: job.city,
+        status: job.status,
+        applicationCount: job.applicationCount || 0,
+        vacancyCount: job.vacancyCount || 1,
+        isBlocked: job.isBlocked || false,
+        salary: job.expectedSalary ? {
+            min: job.expectedSalary.min,
+            max: job.expectedSalary.max,
+            currency: job.expectedSalary.currency || "INR",
+        } : null,
+        createdAt: job.createdAt,
+        updatedAt: job.updatedAt,
+    }));
+
+    // Format recruiter response
+    const formattedRecruiter = {
+        _id: recruiter._id,
+        companyName: recruiter.companyName || "Unknown Company",
+        name: recruiter.name || "Unknown",
+        phone: recruiter.phone,
+        email: recruiter.email,
+        businessType: recruiter.businessType || "Not specified",
+        status: recruiter.status,
+        isBlocked: recruiter.isBlocked || false,
+        companyLogo: recruiter.companyLogo,
+        coinBalance: recruiter.coinBalance || 0,
+        createdAt: recruiter.createdAt,
+        updatedAt: recruiter.updatedAt,
+    };
+
+    return res.status(200).json(
+        ApiResponse.success(
+            {
+                recruiter: formattedRecruiter,
+                jobs: formattedJobs,
+                totalJobs: formattedJobs.length,
+            },
+            "Recruiter details fetched successfully"
+        )
+    );
+});
+
+/**
  * Block a Recruiter
  */
 export const blockRecruiter = asyncHandler(async (req, res) => {
@@ -482,6 +553,78 @@ export const unblockRecruiter = asyncHandler(async (req, res) => {
                 }
             },
             "Recruiter unblocked successfully"
+        )
+    );
+});
+
+/**
+ * Block a Job
+ */
+export const blockJob = asyncHandler(async (req, res) => {
+    const { jobId } = req.params;
+
+    const job = await RecruiterJob.findById(jobId);
+    if (!job) {
+        return res.status(404).json(
+            ApiResponse.error("Job not found")
+        );
+    }
+
+    if (job.isBlocked) {
+        return res.status(400).json(
+            ApiResponse.error("Job is already blocked")
+        );
+    }
+
+    job.isBlocked = true;
+    await job.save();
+
+    return res.status(200).json(
+        ApiResponse.success(
+            {
+                job: {
+                    _id: job._id,
+                    jobTitle: job.jobTitle,
+                    isBlocked: job.isBlocked,
+                }
+            },
+            "Job blocked successfully"
+        )
+    );
+});
+
+/**
+ * Unblock a Job
+ */
+export const unblockJob = asyncHandler(async (req, res) => {
+    const { jobId } = req.params;
+
+    const job = await RecruiterJob.findById(jobId);
+    if (!job) {
+        return res.status(404).json(
+            ApiResponse.error("Job not found")
+        );
+    }
+
+    if (!job.isBlocked) {
+        return res.status(400).json(
+            ApiResponse.error("Job is not blocked")
+        );
+    }
+
+    job.isBlocked = false;
+    await job.save();
+
+    return res.status(200).json(
+        ApiResponse.success(
+            {
+                job: {
+                    _id: job._id,
+                    jobTitle: job.jobTitle,
+                    isBlocked: job.isBlocked,
+                }
+            },
+            "Job unblocked successfully"
         )
     );
 });
