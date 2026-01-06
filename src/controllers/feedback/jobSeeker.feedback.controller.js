@@ -113,13 +113,32 @@ export const submitFeedback = asyncHandler(async (req, res) => {
     }
 
     // 🔐 Validate job feedback only if jobId exists
+    let resolvedJobId = jobId;
+
     if (jobId) {
         console.log("🔎 [Feedback] Job ID provided, validating application:", jobId);
 
-        const applied = await Application.findOne({
+        // First try to find application by job ID
+        let applied = await Application.findOne({
             job: jobId,
             jobSeeker: jobSeekerId,
         }).lean();
+
+        // If not found, check if jobId is actually an applicationId
+        if (!applied) {
+            console.log("🔍 [Feedback] No application found with job ID, checking if it's an application ID...");
+
+            const applicationById = await Application.findOne({
+                _id: jobId,
+                jobSeeker: jobSeekerId,
+            }).lean();
+
+            if (applicationById) {
+                console.log("✅ [Feedback] Found application by ID, resolving to job:", applicationById.job);
+                resolvedJobId = applicationById.job;
+                applied = applicationById;
+            }
+        }
 
         if (!applied) {
             console.warn("🚫 [Feedback] Job feedback rejected — job not applied", {
@@ -133,14 +152,14 @@ export const submitFeedback = asyncHandler(async (req, res) => {
             );
         }
 
-        console.log("✅ [Feedback] Application found for job feedback");
+        console.log("✅ [Feedback] Application found for job feedback, resolved jobId:", resolvedJobId);
     } else {
         console.log("ℹ️ [Feedback] No jobId provided — app/general feedback");
     }
 
     const feedbackData = {
         jobSeeker: jobSeekerId,
-        job: jobId || undefined,
+        job: resolvedJobId || undefined,
         appCategory: appCategory || null,
         appSubCategory: appSubCategory || null,
         jobSubCategory: jobSubCategory || null,
