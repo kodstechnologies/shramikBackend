@@ -121,6 +121,7 @@ export const nonDegreeRegistrationSchema = Joi.object({
 });
 
 // Step 1 Registration Schema (Diploma/ITI Holder)
+// Supports stateId/cityId for location
 export const step1RegistrationSchema = Joi.object({
   phone: phoneSchema,
   // Personal Information
@@ -145,6 +146,9 @@ export const step1RegistrationSchema = Joi.object({
     "date.base": "Please provide a valid date of birth",
     "any.required": "Date of birth is required",
   }),
+  // Location - State and City IDs (from dropdowns)
+  stateId: stateIdSchema,
+  cityId: cityIdSchema,
   referralCode: referralCodeSchema,
   // category is optional - already set in verify-otp and stored in job seeker record
   // Files will be handled separately via multer

@@ -283,43 +283,45 @@ export const getJobApplicants = asyncHandler(async (req, res) => {
     .limit(limitNumber)
     .lean();
 
-  // Format applications with job seeker details
-  const formattedApplications = applications.map((application) => {
-    const jobSeeker = application.jobSeeker;
-    return {
-      _id: application._id,
-      status: application.status,
-      coverLetter: application.coverLetter || "",
-      notes: application.notes || "",
-      appliedAt: application.createdAt,
-      updatedAt: application.updatedAt,
-      jobSeeker: {
-        _id: jobSeeker._id,
-        name: jobSeeker.name,
-        email: jobSeeker.email,
-        phone: jobSeeker.phone,
-        gender: jobSeeker.gender,
-        dateOfBirth: jobSeeker.dateOfBirth,
-        category: jobSeeker.category,
-        state: jobSeeker.state,
-        city: jobSeeker.city,
-        profilePhoto: jobSeeker.profilePhoto,
-        resume: jobSeeker.resume,
-        aadhaarCard: jobSeeker.aadhaarCard,
-        skills: jobSeeker.selectedSkills || jobSeeker.skills || [],
-        specialization: jobSeeker.specializationId
-          ? {
-            _id: jobSeeker.specializationId._id,
-            name: jobSeeker.specializationId.name,
-            skills: jobSeeker.specializationId.skills || [],
-          }
-          : null,
-        education: jobSeeker.education || null,
-        experienceStatus: jobSeeker.experienceStatus,
-        status: jobSeeker.status,
-      },
-    };
-  });
+  // Format applications with job seeker details (filter out applications with deleted job seekers)
+  const formattedApplications = applications
+    .filter((application) => application.jobSeeker !== null)
+    .map((application) => {
+      const jobSeeker = application.jobSeeker;
+      return {
+        _id: application._id,
+        status: application.status,
+        coverLetter: application.coverLetter || "",
+        notes: application.notes || "",
+        appliedAt: application.createdAt,
+        updatedAt: application.updatedAt,
+        jobSeeker: {
+          _id: jobSeeker._id,
+          name: jobSeeker.name,
+          email: jobSeeker.email,
+          phone: jobSeeker.phone,
+          gender: jobSeeker.gender,
+          dateOfBirth: jobSeeker.dateOfBirth,
+          category: jobSeeker.category,
+          state: jobSeeker.state,
+          city: jobSeeker.city,
+          profilePhoto: jobSeeker.profilePhoto,
+          resume: jobSeeker.resume,
+          aadhaarCard: jobSeeker.aadhaarCard,
+          skills: jobSeeker.selectedSkills || jobSeeker.skills || [],
+          specialization: jobSeeker.specializationId
+            ? {
+              _id: jobSeeker.specializationId._id,
+              name: jobSeeker.specializationId.name,
+              skills: jobSeeker.specializationId.skills || [],
+            }
+            : null,
+          education: jobSeeker.education || null,
+          experienceStatus: jobSeeker.experienceStatus,
+          status: jobSeeker.status,
+        },
+      };
+    });
 
   // Get total count
   const totalApplications = await Application.countDocuments(filter);

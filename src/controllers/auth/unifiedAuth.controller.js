@@ -29,7 +29,7 @@ export const sendOTP = asyncHandler(async (req, res) => {
   // Determine user type and existing user status
   let userType = null;
   let isExistingUser = false;
-  let purpose = "registration";
+  let purpose = "login";
 
   if (existingJobSeeker) {
     userType = "job-seeker";
@@ -40,12 +40,8 @@ export const sendOTP = asyncHandler(async (req, res) => {
     isExistingUser = true;
     purpose = "login";
   } else {
-    // New user - userType will be determined after registration
-    // For now, if category is provided, assume it's a job seeker
-    if (category) {
-      userType = "job-seeker";
-    }
-    purpose = "registration";
+    // User is not registered - reject the OTP request
+    throw new ApiError(400, "This phone number is not registered. Please register first.");
   }
 
   // Generate and store OTP
@@ -75,13 +71,39 @@ export const sendOTP = asyncHandler(async (req, res) => {
  * Unified Verify OTP - Automatically detects user type and handles verification
  * Returns appropriate tokens and user data based on user type
  * Optionally registers FCM token if provided
+ * 
+ * VALIDATION: Phone number must match the one used in sendOTP
  */
 export const verifyOTP = asyncHandler(async (req, res) => {
   const { phone, otp, category, fcmToken } = req.body;
-  console.log("phone", phone);
-  console.log("otp", otp);
-  console.log("category", category);
-  console.log("fcmToken", fcmToken);
+
+  // ✅ VALIDATION: Check if phone is provided
+  if (!phone || !phone.toString().trim()) {
+    throw new ApiError(400, "Phone number is required");
+  }
+
+  // ✅ VALIDATION: Check if OTP is provided
+  if (!otp || !otp.toString().trim()) {
+    throw new ApiError(400, "OTP is required");
+  }
+
+  // ✅ VALIDATION: Phone format (10 digit Indian number)
+  const phoneRegex = /^[6-9]\d{9}$/;
+  if (!phoneRegex.test(phone.toString().trim())) {
+    throw new ApiError(400, "Phone number must be a valid 10-digit Indian mobile number");
+  }
+
+  // ✅ VALIDATION: OTP format (4 digits)
+  const otpRegex = /^\d{4}$/;
+  if (!otpRegex.test(otp.toString().trim())) {
+    throw new ApiError(400, "OTP must be exactly 4 digits");
+  }
+
+  console.log("📱 verifyOTP - phone:", phone);
+  console.log("🔑 verifyOTP - otp:", otp);
+  console.log("📂 verifyOTP - category:", category);
+  console.log("🔔 verifyOTP - fcmToken:", fcmToken);
+
   // Check both tables to determine user type
   let existingJobSeeker = await JobSeeker.findOne({ phone });
   let existingRecruiter = await Recruiter.findOne({ phone });
@@ -93,7 +115,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
 
   // Determine user type and purpose
   let userType = null;
-  let purpose = "registration";
+  let purpose = "login";
 
   if (existingJobSeeker) {
     userType = "job-seeker";
@@ -102,18 +124,8 @@ export const verifyOTP = asyncHandler(async (req, res) => {
     userType = "recruiter";
     purpose = "login";
   } else {
-    // New user - determine user type from category
-    // If category is provided, it's a job seeker
-    // Otherwise, it's a recruiter (recruiters don't need category)
-    if (category) {
-      userType = "job-seeker";
-      purpose = "registration";
-    } else {
-      // For new users without category, default to recruiter
-      // Frontend should provide category for job seekers
-      userType = "recruiter";
-      purpose = "registration";
-    }
+    // User is not registered - reject the verification
+    throw new ApiError(400, "This phone number is not registered. Please register first.");
   }
 
   // Check if existing user is blocked
@@ -124,10 +136,14 @@ export const verifyOTP = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Your account has been blocked. Please contact support.");
   }
 
-  // Verify OTP with correct purpose
+  // ✅ VALIDATION: Verify OTP with correct purpose
+  // This automatically validates that:
+  // 1. An OTP was sent to this phone number via sendOTP
+  // 2. The OTP matches what was sent
+  // 3. The OTP has not expired
   const isValid = await verifyOTPFromService(phone, otp, purpose);
   if (!isValid) {
-    throw new ApiError(400, "Invalid or expired OTP");
+    throw new ApiError(400, "Invalid or expired OTP. Please request a new OTP using send-otp.");
   }
 
   // Handle verification based on user type (pass fcmToken)
@@ -144,40 +160,23 @@ export const verifyOTP = asyncHandler(async (req, res) => {
  * Handle Job Seeker OTP Verification
  */
 const handleJobSeekerVerification = async (req, res, jobSeeker, phone, category, purpose, fcmToken) => {
+  // Only allow existing/registered job seekers to login
   if (!jobSeeker) {
-    // New job seeker - Registration flow: category is REQUIRED
-    if (!category) {
-      throw new ApiError(400, "Category is required for job seeker registration");
-    }
-
-    // Create job seeker with only the required fields for OTP verification
-    // Explicitly set fields to avoid any issues with extra fields from req.body
-    // Generate unique referral code for new user
-    const newUserReferralCode = await generateUniqueReferralCode("JobSeeker");
-
-    const jobSeekerData = {
-      phone: phone?.toString().trim(),
-      phoneVerified: true,
-      category: category?.toString().trim(),
-      registrationStep: 1,
-      referralCode: newUserReferralCode,
-    };
-
-    jobSeeker = await JobSeeker.create(jobSeekerData);
-  } else {
-    // Existing job seeker - Login flow: category is optional
-    jobSeeker.phoneVerified = true;
-
-    if (category) {
-      jobSeeker.category = category;
-      // Reset registration step if category changed
-      if (jobSeeker.registrationStep > 1) {
-        jobSeeker.registrationStep = 1;
-      }
-    }
-
-    await jobSeeker.save();
+    throw new ApiError(400, "This phone number is not registered as a job seeker. Please register first.");
   }
+
+  // Existing job seeker - Login flow
+  jobSeeker.phoneVerified = true;
+
+  if (category) {
+    jobSeeker.category = category;
+    // Reset registration step if category changed
+    if (jobSeeker.registrationStep > 1) {
+      jobSeeker.registrationStep = 1;
+    }
+  }
+
+  await jobSeeker.save();
 
   // Ensure user has a referral code
   if (!jobSeeker.referralCode) {
@@ -256,26 +255,17 @@ const handleJobSeekerVerification = async (req, res, jobSeeker, phone, category,
  * Handle Recruiter OTP Verification
  */
 const handleRecruiterVerification = async (req, res, recruiter, phone, purpose, fcmToken) => {
+  // Only allow existing/registered recruiters to login
   if (!recruiter) {
-    // New recruiter - Registration flow
-    // Generate unique referral code for new user
-    const newUserReferralCode = await generateUniqueReferralCode("Recruiter");
-
-    recruiter = await Recruiter.create({
-      phone,
-      phoneVerified: true,
-      registrationStep: 1,
-      role: "recruiter",
-      referralCode: newUserReferralCode,
-    });
-  } else {
-    // Existing recruiter - Login flow
-    recruiter.phoneVerified = true;
-    if (recruiter.registrationStep < 1) {
-      recruiter.registrationStep = 1;
-    }
-    await recruiter.save();
+    throw new ApiError(400, "This phone number is not registered as a recruiter. Please register first.");
   }
+
+  // Existing recruiter - Login flow
+  recruiter.phoneVerified = true;
+  if (recruiter.registrationStep < 1) {
+    recruiter.registrationStep = 1;
+  }
+  await recruiter.save();
 
   // Ensure user has a referral code
   if (!recruiter.referralCode) {

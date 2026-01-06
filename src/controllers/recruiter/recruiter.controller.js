@@ -114,6 +114,12 @@ export const verifyOTP = asyncHandler(async (req, res) => {
   }
 
   if (isNewUser) {
+    // Check if a user with this phone already exists (double check for safety)
+    const existingUser = await Recruiter.findOne({ phone });
+    if (existingUser) {
+      throw new ApiError(400, "This phone number is already registered. Please login instead.");
+    }
+
     // Generate unique referral code for new user
     const newUserReferralCode = await generateUniqueReferralCode("Recruiter");
 

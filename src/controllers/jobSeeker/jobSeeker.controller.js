@@ -149,6 +149,12 @@ export const verifyOTP = asyncHandler(async (req, res) => {
       throw new ApiError(400, "Category is required for new user registration");
     }
 
+    // Check if a user with this phone already exists (double check for safety)
+    const existingUser = await JobSeeker.findOne({ phone });
+    if (existingUser) {
+      throw new ApiError(400, "This phone number is already registered. Please login instead.");
+    }
+
     // Generate unique referral code for new user
     const newUserReferralCode = await generateUniqueReferralCode("JobSeeker");
 
@@ -428,9 +434,10 @@ export const registerNonDegree = asyncHandler(async (req, res) => {
 /**
  * Step 1 Registration (Diploma/ITI Holder) - Upload Aadhaar and Profile Photo
  * Also processes referral code if provided
+ * Supports stateId/cityId for location
  */
 export const step1Registration = asyncHandler(async (req, res) => {
-  const { phone, name, email, gender, dateOfBirth, referralCode } = req.body;
+  const { phone, name, email, gender, dateOfBirth, stateId, cityId, referralCode } = req.body;
 
   // Cross-table validation: Check if phone exists in Recruiter table
   const existingRecruiter = await Recruiter.findOne({ phone });
@@ -450,6 +457,37 @@ export const step1Registration = asyncHandler(async (req, res) => {
   ) {
     throw new ApiError(400, "Invalid category for this registration step");
   }
+
+  // Resolve state and city names from IDs
+  let stateName = null;
+  let cityName = null;
+
+  console.log("📍 step1Registration - stateId:", stateId, "cityId:", cityId);
+
+  if (stateId) {
+    const stateDoc = await State.findById(stateId);
+    console.log("📍 State document found:", stateDoc ? stateDoc.name : "NOT FOUND");
+    if (!stateDoc) {
+      throw new ApiError(404, "State not found");
+    }
+    stateName = stateDoc.name;
+  }
+
+  if (cityId) {
+    const cityDoc = await City.findById(cityId);
+    console.log("📍 City document found:", cityDoc ? cityDoc.name : "NOT FOUND");
+    if (!cityDoc) {
+      throw new ApiError(404, "City not found");
+    }
+    cityName = cityDoc.name;
+
+    // Verify city belongs to the selected state
+    if (stateId && cityDoc.stateId.toString() !== stateId) {
+      throw new ApiError(400, "City does not belong to the selected state");
+    }
+  }
+
+  console.log("📍 Resolved State:", stateName, "| City:", cityName);
 
   // Handle file uploads
   const aadhaarCard = req.files?.aadhaarCard?.[0]
@@ -472,11 +510,26 @@ export const step1Registration = asyncHandler(async (req, res) => {
   jobSeeker.email = email;
   jobSeeker.gender = gender ? gender.toLowerCase().trim() : null;
   jobSeeker.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
+
+  // Update location - always set if resolved
+  if (stateName) {
+    jobSeeker.state = stateName;
+    console.log("📍 Setting jobSeeker.state to:", stateName);
+  }
+  if (cityName) {
+    jobSeeker.city = cityName;
+    console.log("📍 Setting jobSeeker.city to:", cityName);
+  }
+
   jobSeeker.aadhaarCard = aadhaarCard;
   jobSeeker.profilePhoto = profilePhoto;
   jobSeeker.registrationStep = 2;
 
+  console.log("📍 Before save - jobSeeker.state:", jobSeeker.state, "| jobSeeker.city:", jobSeeker.city);
+
   await jobSeeker.save();
+
+  console.log("📍 After save - jobSeeker.state:", jobSeeker.state, "| jobSeeker.city:", jobSeeker.city);
 
   // Process referral code if provided and not already referred
   let referralInfo = null;
@@ -1228,6 +1281,32 @@ export const getJobSeekerProfile = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Job seeker profile not found");
   }
 
+  // ✅ DEBUG: Log what we're getting from database
+  console.log("========== getJobSeekerProfile DEBUG ==========");
+  console.log("📤 Profile from DB:");
+  console.log("   - _id:", profile._id);
+  console.log("   - name:", profile.name);
+  console.log("   - email:", profile.email);
+  console.log("   - phone:", profile.phone);
+  console.log("   - gender:", profile.gender);
+  console.log("   - dateOfBirth:", profile.dateOfBirth);
+  console.log("   - state:", profile.state);
+  console.log("   - city:", profile.city);
+  console.log("   - category:", profile.category);
+  console.log("   - role:", profile.role);
+  console.log("   - specializationId:", profile.specializationId?._id || null);
+  console.log("   - selectedSkills:", profile.selectedSkills);
+  console.log("   - skills:", profile.skills);
+  console.log("   - questionAnswers:", JSON.stringify(profile.questionAnswers));
+  console.log("   - aboutMe:", profile.aboutMe);
+  console.log("   - profilePhoto:", profile.profilePhoto);
+  console.log("   - aadhaarCard:", profile.aadhaarCard);
+  console.log("   - resume:", profile.resume);
+  console.log("   - registrationStep:", profile.registrationStep);
+  console.log("   - status:", profile.status);
+  console.log("   - education:", profile.education);
+  console.log("=================================================");
+
   // Format response
   const formattedProfile = {
     _id: profile._id,
@@ -1264,17 +1343,27 @@ export const getJobSeekerProfile = asyncHandler(async (req, res) => {
     documents: profile.documents || [],
     // Education Details
     education: profile.education || null,
-    // Experience Status
+    // Experience Status & Year of Experience
     experienceStatus: profile.experienceStatus,
+    yearOfExperience: profile.yearOfExperience || "",
     // About Me
     aboutMe: profile.aboutMe || null,
     // Registration Status
     registrationStep: profile.registrationStep,
     isRegistrationComplete: profile.isRegistrationComplete,
-    // Status
+    // Status & Block
     status: profile.status,
+    isBlocked: profile.isBlocked || false,
     // Coin Balance
     coinBalance: profile.coinBalance || 0,
+    // FCM Tokens
+    fcmTokens: profile.fcmTokens || [],
+    // Referral System
+    referralCode: profile.referralCode || null,
+    referredBy: profile.referredBy || null,
+    totalReferrals: profile.totalReferrals || 0,
+    // Blocked Jobs from Feedback
+    blockedJobsFromFeedback: profile.blockedJobsFromFeedback || [],
     // Timestamps
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt,
