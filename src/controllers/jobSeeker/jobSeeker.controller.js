@@ -267,6 +267,11 @@ export const registerNonDegree = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Please verify your phone number first");
   }
 
+  // Check if user is already fully registered - prevent re-registration
+  if (jobSeeker.isRegistrationComplete) {
+    throw new ApiError(400, "You are already registered. Please login instead or update your profile through the profile settings.");
+  }
+
   if (jobSeeker.category !== "Non-Degree Holder") {
     throw new ApiError(400, "Invalid category for this registration");
   }
@@ -449,6 +454,11 @@ export const step1Registration = asyncHandler(async (req, res) => {
   let jobSeeker = await JobSeeker.findOne({ phone });
   if (!jobSeeker || !jobSeeker.phoneVerified) {
     throw new ApiError(400, "Please verify your phone number first");
+  }
+
+  // Check if user is already fully registered - prevent re-registration
+  if (jobSeeker.isRegistrationComplete) {
+    throw new ApiError(400, "You are already registered. Please login instead or update your profile through the profile settings.");
   }
 
   if (
@@ -637,6 +647,11 @@ export const step2Registration = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Please verify your phone number first");
   }
 
+  // Check if user is already fully registered - prevent re-registration
+  if (jobSeeker.isRegistrationComplete) {
+    throw new ApiError(400, "You are already registered. Please login instead or update your profile through the profile settings.");
+  }
+
   if (jobSeeker.registrationStep < 2) {
     throw new ApiError(400, "Please complete step 1 first");
   }
@@ -796,6 +811,11 @@ export const step3Registration = asyncHandler(async (req, res) => {
 
   if (!jobSeeker || !jobSeeker.phoneVerified) {
     throw new ApiError(400, "Please verify your phone number first");
+  }
+
+  // Check if user is already fully registered - prevent re-registration
+  if (jobSeeker.isRegistrationComplete) {
+    throw new ApiError(400, "You are already registered. Please login instead or update your profile through the profile settings.");
   }
 
   if (jobSeeker.registrationStep < 3) {

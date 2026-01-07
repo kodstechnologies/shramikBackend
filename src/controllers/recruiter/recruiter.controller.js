@@ -254,6 +254,11 @@ export const registerRecruiter = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Please verify your phone number first");
   }
 
+  // Check if user is already fully registered - prevent re-registration
+  if (recruiter.isRegistrationComplete) {
+    throw new ApiError(400, "You are already registered. Please login instead or update your profile through the profile settings.");
+  }
+
   // Cross-table validation: Check if phone exists in JobSeeker table
   const existingJobSeeker = await JobSeeker.findOne({ phone: recruiter.phone });
   if (existingJobSeeker) {
