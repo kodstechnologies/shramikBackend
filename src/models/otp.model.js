@@ -18,7 +18,7 @@ const otpSchema = new Schema(
     expiresAt: {
       type: Date,
       required: true,
-      index: { expireAfterSeconds: 0 }, // Auto-delete expired OTPs
+     expires: 0, 
     },
     verified: {
       type: Boolean,
@@ -37,7 +37,6 @@ const otpSchema = new Schema(
 
 // Index for faster lookups
 otpSchema.index({ phone: 1, verified: 1 });
-otpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export const OTP = model("OTP", otpSchema);
 
