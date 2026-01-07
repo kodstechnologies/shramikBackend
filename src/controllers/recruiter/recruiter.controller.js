@@ -218,6 +218,12 @@ export const registerRecruiter = asyncHandler(async (req, res) => {
     referralCode,
   } = req.body;
 
+  // Debug logging
+  console.log("📥 registerRecruiter - req.body:", JSON.stringify(req.body, null, 2));
+  console.log("📥 registerRecruiter - extracted fields:", {
+    phone, name, companyName, email, state, city, stateId, cityId, website, businessType, establishedFrom, aboutMe
+  });
+
   const identifier = recruiterId
     ? { _id: recruiterId }
     : { phone };
@@ -345,10 +351,10 @@ export const registerRecruiter = asyncHandler(async (req, res) => {
 
             await addCoins(
               referrerUser._id,
-              referrerType.toLowerCase() === "recruiter" ? "recruiter" : "jobSeeker",
+              referrerType.toLowerCase() === "recruiter" ? "recruiter" : "job-seeker",
               referrerCoins,
               `Referral reward: New recruiter ${recruiter.phone} signed up using your code`,
-              referral._id,
+              0,
               "referral"
             );
 

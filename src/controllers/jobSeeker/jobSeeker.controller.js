@@ -392,10 +392,10 @@ export const registerNonDegree = asyncHandler(async (req, res) => {
 
             await addCoins(
               referrerUser._id,
-              referrerType.toLowerCase() === "recruiter" ? "recruiter" : "jobSeeker",
+              referrerType.toLowerCase() === "recruiter" ? "recruiter" : "job-seeker",
               referrerCoins,
               `Referral reward: New user ${phone} signed up using your code`,
-              referral._id,
+              0,
               "referral"
             );
 
@@ -566,10 +566,10 @@ export const step1Registration = asyncHandler(async (req, res) => {
 
             await addCoins(
               referrerUser._id,
-              referrerType.toLowerCase() === "recruiter" ? "recruiter" : "jobSeeker",
+              referrerType.toLowerCase() === "recruiter" ? "recruiter" : "job-seeker",
               referrerCoins,
               `Referral reward: New user ${phone} signed up using your code`,
-              referral._id,
+              0,
               "referral"
             );
 
