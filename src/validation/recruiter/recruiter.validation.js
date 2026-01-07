@@ -67,31 +67,41 @@ const referralCodeSchema = Joi.string()
   });
 
 // Recruiter Registration Schema (basic for now)
+// Supports both backend field names and Flutter field names for compatibility
 export const recruiterRegistrationSchema = Joi.object({
   phone: phoneSchema.optional(),
   recruiterId: objectIdSchema.optional(),
+  // Contact Person Name - accepts both 'name' and 'contactPersonName'
   name: Joi.string().trim().allow("").optional(),
+  contactPersonName: Joi.string().trim().allow("").optional(),
   companyName: Joi.string().trim().allow("").optional(),
   email: Joi.string().email().trim().lowercase().optional(),
   state: Joi.string().trim().min(1).optional(),
   city: Joi.string().trim().min(1).optional(),
+  stateName: Joi.string().trim().min(1).optional(),
+  cityName: Joi.string().trim().min(1).optional(),
   stateId: stateIdSchema,
   cityId: cityIdSchema,
   website: Joi.string().uri().trim().optional().allow("").messages({
     "string.uri": "Website must be a valid URL",
   }),
   businessType: Joi.string().trim().max(100).optional().allow(""),
-  establishedFrom: Joi.number()
-    .integer()
-    .min(1800)
-    .max(new Date().getFullYear() + 1)
-    .optional()
-    .messages({
-      "number.base": "Established from must be a valid year",
-      "number.min": "Established from must be greater than or equal to 1800",
-      "number.max": "Established from cannot be in the far future",
-    }),
+  // Established Year - accepts both 'establishedFrom' and 'establishedYear'
+  establishedFrom: Joi.alternatives().try(
+    Joi.number().integer().min(1800).max(new Date().getFullYear() + 1),
+    Joi.string().pattern(/^\d{4}$/)
+  ).optional().messages({
+    "alternatives.match": "Established year must be a valid year",
+  }),
+  establishedYear: Joi.alternatives().try(
+    Joi.number().integer().min(1800).max(new Date().getFullYear() + 1),
+    Joi.string().pattern(/^\d{4}$/)
+  ).optional().messages({
+    "alternatives.match": "Established year must be a valid year",
+  }),
+  // About/Description - accepts both 'aboutMe' and 'description'
   aboutMe: Joi.string().trim().max(2000).optional().allow(""),
+  description: Joi.string().trim().max(2000).optional().allow(""),
   referralCode: referralCodeSchema,
 }).or("phone", "recruiterId");
 

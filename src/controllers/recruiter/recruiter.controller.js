@@ -205,23 +205,40 @@ export const registerRecruiter = asyncHandler(async (req, res) => {
     phone,
     recruiterId,
     name,
+    contactPersonName, // Flutter field name
     companyName,
     email,
     state,
     city,
+    stateName, // Flutter field name
+    cityName,  // Flutter field name
     stateId,
     cityId,
     website,
     businessType,
     establishedFrom,
+    establishedYear, // Flutter field name
     aboutMe,
+    description, // Flutter field name
     referralCode,
   } = req.body;
 
   // Debug logging
   console.log("📥 registerRecruiter - req.body:", JSON.stringify(req.body, null, 2));
-  console.log("📥 registerRecruiter - extracted fields:", {
-    phone, name, companyName, email, state, city, stateId, cityId, website, businessType, establishedFrom, aboutMe
+
+  // Normalize field names (Flutter sends different names)
+  const normalizedName = name || contactPersonName;
+  const normalizedEstablishedFrom = establishedFrom || establishedYear;
+  const normalizedAboutMe = aboutMe || description;
+  const normalizedState = state || stateName;
+  const normalizedCity = city || cityName;
+
+  console.log("📥 registerRecruiter - normalized fields:", {
+    name: normalizedName, companyName, email,
+    state: normalizedState, city: normalizedCity,
+    stateId, cityId, website, businessType,
+    establishedFrom: normalizedEstablishedFrom,
+    aboutMe: normalizedAboutMe
   });
 
   const identifier = recruiterId
@@ -254,9 +271,9 @@ export const registerRecruiter = asyncHandler(async (req, res) => {
     ? req.files.documents.map((file) => getFileUrl(file))
     : [];
 
-  // Update recruiter basic info
-  if (name !== undefined) {
-    recruiter.name = name?.trim() || null;
+  // Update recruiter basic info - use normalized values
+  if (normalizedName !== undefined) {
+    recruiter.name = normalizedName?.trim() || null;
   }
   recruiter.companyName = companyName || recruiter.companyName;
   recruiter.email = email || recruiter.email;
@@ -283,9 +300,9 @@ export const registerRecruiter = asyncHandler(async (req, res) => {
       }
     }
   } else {
-    // Fallback to plain names
-    recruiter.state = state || recruiter.state;
-    recruiter.city = city || recruiter.city;
+    // Fallback to plain names (use normalized values)
+    recruiter.state = normalizedState || recruiter.state;
+    recruiter.city = normalizedCity || recruiter.city;
   }
 
   // Update additional business info
@@ -295,11 +312,13 @@ export const registerRecruiter = asyncHandler(async (req, res) => {
   if (businessType !== undefined) {
     recruiter.businessType = businessType?.trim() || null;
   }
-  if (establishedFrom !== undefined) {
-    recruiter.establishedFrom = establishedFrom ? Number(establishedFrom) : null;
+  // Use normalized establishedFrom (supports both establishedFrom and establishedYear)
+  if (normalizedEstablishedFrom !== undefined) {
+    recruiter.establishedFrom = normalizedEstablishedFrom ? Number(normalizedEstablishedFrom) : null;
   }
-  if (aboutMe !== undefined) {
-    recruiter.aboutMe = aboutMe?.trim() || null;
+  // Use normalized aboutMe (supports both aboutMe and description)
+  if (normalizedAboutMe !== undefined) {
+    recruiter.aboutMe = normalizedAboutMe?.trim() || null;
   }
 
   if (companyLogo) {
