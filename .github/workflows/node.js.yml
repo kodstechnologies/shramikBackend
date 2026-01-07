@@ -27,4 +27,4 @@ jobs:
     - run: |
         touch .env
         echo "${{ secrets.backendenv}}" > .env
-    - run: pm2 restart BackendServer
+    - run: pm2 restart sramik-backend
