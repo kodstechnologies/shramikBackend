@@ -10,6 +10,7 @@ export const seedDefaultAdmin = async () => {
   };
 
   const existingAdmin = await Admin.findOne({ email: defaultAdmin.email });
+  console.log("existingAdmin", existingAdmin);
 
   if (!existingAdmin) {
     await Admin.create(defaultAdmin);
