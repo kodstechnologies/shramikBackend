@@ -38,7 +38,7 @@ import {
   getMyApplicationsSchema,
   updateJobSeekerProfileSchema,
 } from "../../validation/jobSeeker/jobSeeker.validation.js";
-import { uploadFields, uploadToCloudinaryMiddleware } from "../../middlewares/fileUpload.js";
+import { uploadFields, uploadToS3Middleware } from "../../middlewares/fileUpload.js";
 
 const router = Router();
 
@@ -62,7 +62,7 @@ router.post(
     { name: "aadhaarCard", maxCount: 1 },
     { name: "profilePhoto", maxCount: 1 },
   ]),
-  uploadToCloudinaryMiddleware, // Upload files to Cloudinary
+  uploadToS3Middleware, // Upload files to S3
   (req, res, next) => {
     // Debug: Log what multer received
     console.log("After multer - req.body:", req.body);
@@ -81,7 +81,7 @@ router.post(
     { name: "aadhaarCard", maxCount: 1 },
     { name: "profilePhoto", maxCount: 1 },
   ]),
-  uploadToCloudinaryMiddleware, // Upload files to Cloudinary
+  uploadToS3Middleware, // Upload files to S3
   validateRequest(step1RegistrationSchema),
   step1Registration
 );
@@ -101,7 +101,7 @@ router.post(
     { name: "experienceCertificate", maxCount: 1 },
     { name: "documents", maxCount: 5 },
   ]),
-  uploadToCloudinaryMiddleware, // Upload files to Cloudinary
+  uploadToS3Middleware, // Upload files to S3
   validateRequest(step3RegistrationSchema),
   step3Registration
 );
@@ -171,7 +171,7 @@ router.put(
     { name: "experienceCertificate", maxCount: 1 },
     { name: "documents", maxCount: 5 },
   ]),
-  uploadToCloudinaryMiddleware,
+  uploadToS3Middleware,
   validateRequest(updateJobSeekerProfileSchema),
   updateJobSeekerProfile
 );

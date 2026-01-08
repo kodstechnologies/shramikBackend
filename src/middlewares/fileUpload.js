@@ -238,10 +238,10 @@ export const uploadMultiple = (fieldName, maxCount = 5) =>
 export const uploadFields = (fields) => upload.fields(fields);
 
 /**
- * Middleware to upload files to Cloudinary after multer processes them
+ * Middleware to upload files to S3 after multer processes them
  * This should be used after uploadFields/uploadSingle/uploadMultiple
  */
-export const uploadToCloudinaryMiddleware = async (req, res, next) => {
+export const uploadToS3Middleware = async (req, res, next) => {
   try {
     // Handle single file
     if (req.file) {
@@ -260,10 +260,12 @@ export const uploadToCloudinaryMiddleware = async (req, res, next) => {
       const result = await uploadToCloudinary(
         req.file.buffer,
         folder,
-        resourceType
+        resourceType,
+        req.file.originalname,
+        req.file.mimetype
       );
 
-      // Store Cloudinary URL and public_id in file object
+      // Store S3 URL and key in file object (using Cloudinary-compatible names)
       req.file.cloudinaryUrl = result.secure_url;
       req.file.publicId = result.public_id;
       req.file.url = result.secure_url; // For backward compatibility
@@ -292,10 +294,12 @@ export const uploadToCloudinaryMiddleware = async (req, res, next) => {
           const result = await uploadToCloudinary(
             file.buffer,
             folder,
-            resourceType
+            resourceType,
+            file.originalname,
+            file.mimetype
           );
 
-          // Store Cloudinary URL and public_id in file object
+          // Store S3 URL and key in file object (using Cloudinary-compatible names)
           file.cloudinaryUrl = result.secure_url;
           file.publicId = result.public_id;
           file.url = result.secure_url; // For backward compatibility
@@ -305,7 +309,7 @@ export const uploadToCloudinaryMiddleware = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error("Cloudinary upload error:", error);
+    console.error("S3 upload error:", error);
     next(error);
   }
 };

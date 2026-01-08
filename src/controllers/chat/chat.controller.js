@@ -124,7 +124,9 @@ export const sendMessage = asyncHandler(async (req, res) => {
       const uploadResult = await uploadToCloudinary(
         file.buffer,
         "chat_uploads",
-        "auto"
+        "auto",
+        file.originalname,
+        file.mimetype
       );
 
       attachments.push({

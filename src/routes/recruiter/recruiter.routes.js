@@ -30,7 +30,7 @@ import coinRoutes from "./coin.routes.js";
 import { verifyRecruiterJWT } from "../../middlewares/recruiter/authRecruiter.js";
 import {
   uploadFields,
-  uploadToCloudinaryMiddleware,
+  uploadToS3Middleware,
 } from "../../middlewares/fileUpload.js";
 import {
   getAllShortlistedCandidates,
@@ -60,7 +60,7 @@ router.post(
     { name: "companyLogo", maxCount: 1 },
     { name: "documents", maxCount: 5 },
   ]),
-  uploadToCloudinaryMiddleware,
+  uploadToS3Middleware,
   validateRequest(recruiterRegistrationSchema),
   registerRecruiter
 );
@@ -99,7 +99,7 @@ router.put(
     { name: "companyLogo", maxCount: 1 },
     { name: "documents", maxCount: 5 },
   ]),
-  uploadToCloudinaryMiddleware,
+  uploadToS3Middleware,
   validateRequest(updateRecruiterProfileSchema),
   updateRecruiterProfile
 );

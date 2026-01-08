@@ -37,10 +37,7 @@ export const applyForJob = asyncHandler(async (req, res) => {
     throw new ApiError(400, `Cannot apply for this job. Job status is: ${job.status}`);
   }
 
-  // Check if job seeker has completed registration
-  if (!jobSeeker.isRegistrationComplete) {
-    throw new ApiError(400, "Please complete your registration before applying for jobs");
-  }
+  // Registration check removed - allowing all authenticated users to apply
 
   // Fetch coin cost for job application
   const coinRule = await CoinRule.findOne({ category: "jobSeeker" });
