@@ -16,6 +16,7 @@ import { generateUniqueReferralCode, validateReferralCode } from "../../utils/re
 import { Referral } from "../../models/referral/referral.model.js";
 import { CoinRule } from "../../models/admin/coinPricing/coinPricing.model.js";
 import { addCoins } from "../../services/coin/coinService.js";
+import { createPendingReferral } from "../../services/referral/referralService.js";
 
 /**
  * Website Types - Supported URL protocols
@@ -340,6 +341,7 @@ export const registerRecruiter = asyncHandler(async (req, res) => {
   await recruiter.save();
 
   // Process referral code if provided and not already referred
+  // Creates a pending referral - coins will be awarded when recruiter posts a job
   let referralInfo = null;
   if (referralCode && !recruiter.referredBy) {
     try {
@@ -348,63 +350,31 @@ export const registerRecruiter = asyncHandler(async (req, res) => {
         const referrerUser = validation.referrer;
         const referrerType = validation.referrerType;
 
-        // Get referral settings
-        const coinRule = await CoinRule.findOne({ category: "recruiter" });
-        const referralSettings = coinRule?.referralSettings || {};
-        const isReferralEnabled = referralSettings.isEnabled !== false;
-        const referrerCoins = referralSettings.referrerCoins || 50;
-        const maxReferrals = referralSettings.maxReferralsPerUser || 0;
+        // Create pending referral (coins awarded on first job post)
+        const pendingReferral = await createPendingReferral({
+          referrerId: referrerUser._id,
+          referrerType: referrerType,
+          refereeId: recruiter._id,
+          refereeType: "Recruiter",
+          referralCode: referralCode
+        });
 
-        if (isReferralEnabled) {
-          const referrerModel = referrerType === "Recruiter" ? Recruiter : JobSeeker;
-          const referrerDoc = await referrerModel.findById(referrerUser._id);
-          const currentReferrals = referrerDoc?.totalReferrals || 0;
-          const canReward = maxReferrals === 0 || currentReferrals < maxReferrals;
+        if (pendingReferral) {
+          // Update recruiter's referredBy
+          recruiter.referredBy = referrerUser._id;
+          await recruiter.save();
 
-          if (canReward) {
-            const referral = await Referral.create({
-              referrer: referrerUser._id,
-              referrerType: referrerType,
-              referee: recruiter._id,
-              refereeType: "Recruiter",
-              referralCode: referralCode.toUpperCase(),
-              status: "completed",
-              referrerCoinsAwarded: referrerCoins,
-              refereeCoinsAwarded: 0,
-            });
-
-            await addCoins(
-              referrerUser._id,
-              referrerType.toLowerCase() === "recruiter" ? "recruiter" : "job-seeker",
-              referrerCoins,
-              `Referral reward: New recruiter ${recruiter.phone} signed up using your code`,
-              0,
-              "referral"
-            );
-
-            await referrerModel.findByIdAndUpdate(referrerUser._id, {
-              $inc: { totalReferrals: 1 },
-            });
-
-            // Update referee's referredBy
-            recruiter.referredBy = referrerUser._id;
-            await recruiter.save();
-
-            referral.status = "rewarded";
-            await referral.save();
-
-            referralInfo = {
-              referredBy: referrerUser._id,
-              referrerType,
-              referrerCoinsAwarded: referrerCoins,
-            };
-
-            console.log(`✅ Referral completed: ${recruiter.phone} referred by ${referrerUser._id} (${referrerType})`);
-          }
+          referralInfo = {
+            referredBy: referrerUser._id,
+            referrerType,
+            status: "pending",
+            message: "Referral registered. Coins will be awarded when you post your first job."
+          };
         }
       }
     } catch (refErr) {
-      console.error("❌ Referral processing error:", refErr.message);
+      console.error("❌ REFERRAL ERROR:", refErr.message);
+      console.error("❌ Stack:", refErr.stack);
     }
   }
 

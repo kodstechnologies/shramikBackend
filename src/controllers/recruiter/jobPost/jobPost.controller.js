@@ -12,6 +12,7 @@ import { JobSeeker } from "../../../models/jobSeeker/jobSeeker.model.js";
 import { fcmService } from "../../../firebase/fcm.service.js";
 import Notification from "../../../firebase/notification.model.js";
 import { Category } from "../../../models/category/category.model.js";
+import { processReferralReward } from "../../../services/referral/referralService.js";
 
 const normalizeArray = (value) => {
   if (!value) return [];
@@ -326,6 +327,26 @@ export const createRecruiterJob = asyncHandler(async (req, res) => {
 
   // Notify job seekers with matching skills (background, don't block response)
   notifyMatchingJobSeekers(job._id, normalizedSkills, jobTitle);
+
+  // Process referral reward if this is the recruiter's first job post
+  // This awards coins to the referrer (if any) when the referred recruiter posts their first job
+  try {
+    // Check if this is the first job post
+    const jobCount = await RecruiterJob.countDocuments({
+      recruiter: recruiter._id
+    });
+
+    if (jobCount === 1) {
+      // This is the first job post - process referral reward in background
+      processReferralReward(
+        recruiter._id,
+        "Recruiter",
+        "job_post"
+      ).catch(err => console.error("❌ Error processing referral reward:", err.message));
+    }
+  } catch (refErr) {
+    console.error("❌ Error checking referral reward:", refErr.message);
+  }
 
   return res
     .status(201)

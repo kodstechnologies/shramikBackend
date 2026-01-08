@@ -23,7 +23,7 @@ const coinTransactionSchema = new Schema(
     },
     transactionType: {
       type: String,
-      enum: ["purchase", "deduction", "refund"],
+      enum: ["purchase", "deduction", "refund", "referral"],
       required: true,
       index: true,
     },

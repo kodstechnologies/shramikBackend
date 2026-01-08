@@ -7,6 +7,7 @@ import { RecruiterJob } from "../../models/recruiter/jobPost/jobPost.model.js";
 import { JobSeeker } from "../../models/jobSeeker/jobSeeker.model.js";
 import { CoinRule } from "../../models/admin/coinPricing/coinPricing.model.js";
 import { deductCoins, checkCoinBalance } from "../../services/coin/coinService.js";
+import { processReferralReward } from "../../services/referral/referralService.js";
 
 /**
  * Apply for a Job (Job Seeker)
@@ -185,6 +186,28 @@ export const applyForJob = asyncHandler(async (req, res) => {
       updatedJob.status = "Closed";
       await updatedJob.save();
     }
+  }
+
+  // Process referral reward if this is the job seeker's first application
+  // This awards coins to the referrer (if any) when the referred user applies for a job
+  let referralRewardInfo = null;
+  try {
+    // Check if this is the first application (excluding withdrawn)
+    const applicationCount = await Application.countDocuments({
+      jobSeeker: jobSeeker._id,
+      status: { $ne: "Withdrawn" }
+    });
+
+    if (applicationCount === 1) {
+      // This is the first application - process referral reward
+      referralRewardInfo = await processReferralReward(
+        jobSeeker._id,
+        "JobSeeker",
+        "job_application"
+      );
+    }
+  } catch (refErr) {
+    console.error("❌ Error processing referral reward:", refErr.message);
   }
 
   // Populate job and job seeker details for response

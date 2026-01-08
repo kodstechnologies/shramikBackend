@@ -82,7 +82,15 @@ export const recruiterRegistrationSchema = Joi.object({
   cityName: Joi.string().trim().min(1).optional(),
   stateId: stateIdSchema,
   cityId: cityIdSchema,
-  website: Joi.string().uri().trim().optional().allow("").messages({
+  website: Joi.string().trim().optional().allow("").custom((value, helpers) => {
+    if (!value || value === "") return value;
+    // Allow URLs with or without protocol
+    const urlPattern = /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/i;
+    if (!urlPattern.test(value)) {
+      return helpers.error('string.uri');
+    }
+    return value;
+  }).messages({
     "string.uri": "Website must be a valid URL",
   }),
   businessType: Joi.string().trim().max(100).optional().allow(""),
@@ -120,7 +128,15 @@ export const updateRecruiterProfileSchema = Joi.object({
   city: Joi.string().trim().min(1).optional(),
   stateId: stateIdSchema,
   cityId: cityIdSchema,
-  website: Joi.string().uri().trim().optional().allow("").messages({
+  website: Joi.string().trim().optional().allow("").custom((value, helpers) => {
+    if (!value || value === "") return value;
+    // Allow URLs with or without protocol
+    const urlPattern = /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/i;
+    if (!urlPattern.test(value)) {
+      return helpers.error('string.uri');
+    }
+    return value;
+  }).messages({
     "string.uri": "Website must be a valid URL",
   }),
   businessType: Joi.string().trim().max(100).optional().allow(""),
