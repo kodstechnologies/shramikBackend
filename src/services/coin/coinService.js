@@ -34,7 +34,7 @@ const getUserTypeModel = (userType) => {
 export const getCoinBalance = async (userId, userType) => {
   const UserModel = getUserModel(userType);
   const user = await UserModel.findById(userId).select("coinBalance");
-  
+
   if (!user) {
     throw new ApiError(404, "User not found");
   }
@@ -47,7 +47,7 @@ export const getCoinBalance = async (userId, userType) => {
  */
 export const checkCoinBalance = async (userId, userType, requiredAmount) => {
   const currentBalance = await getCoinBalance(userId, userType);
-  
+
   return {
     hasSufficientBalance: currentBalance >= requiredAmount,
     currentBalance,
@@ -87,7 +87,7 @@ export const deductCoins = async (
     }
 
     const currentBalance = user.coinBalance || 0;
-    
+
     if (currentBalance < amount) {
       throw new ApiError(400, `Insufficient coin balance. Required: ${amount}, Available: ${currentBalance}`);
     }
@@ -274,8 +274,64 @@ export const getTransactionHistory = async (
 
   const totalPages = Math.ceil(total / limitNumber);
 
+  // Format transactions with IST timezone
+  const formattedTransactions = transactions.map(txn => {
+    const createdAt = new Date(txn.createdAt);
+    const updatedAt = new Date(txn.updatedAt);
+
+    // Convert to IST (UTC+5:30)
+    const istOptions = {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    };
+
+    const dateOnlyOptions = {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    };
+
+    const timeOnlyOptions = {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    };
+
+    // Get today's date in IST
+    const now = new Date();
+    const todayIST = now.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
+    const txnDateIST = createdAt.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
+
+    // Determine if transaction is from today
+    const isToday = todayIST === txnDateIST;
+
+    // Format the display string
+    const timeStr = createdAt.toLocaleTimeString('en-IN', timeOnlyOptions);
+    const dateStr = createdAt.toLocaleDateString('en-IN', dateOnlyOptions);
+    const formattedDate = isToday ? `Today, ${timeStr}` : `${dateStr}, ${timeStr}`;
+
+    return {
+      ...txn,
+      createdAt: formattedDate, // Override with IST formatted date for display
+      updatedAt: updatedAt.toLocaleString('en-IN', istOptions),
+      createdAtUTC: txn.createdAt, // Keep original UTC for reference
+      updatedAtUTC: txn.updatedAt, // Keep original UTC for reference
+      createdAtIST: createdAt.toLocaleString('en-IN', istOptions),
+      updatedAtIST: updatedAt.toLocaleString('en-IN', istOptions),
+      formattedDate, // "Today, 12:30 PM" or "Jan 8, 2026, 12:30 PM"
+      isToday
+    };
+  });
+
   return {
-    transactions,
+    transactions: formattedTransactions,
     pagination: {
       currentPage: pageNumber,
       totalPages,
