@@ -41,7 +41,7 @@ const stringArray = Joi.array().items(Joi.string().trim().min(1)).default([]);
 
 export const createRecruiterJobSchema = Joi.object({
   jobTitle: Joi.string().trim().min(3).required(),
-  jobDescription: Joi.string().trim().min(20).required(),
+  jobDescription: Joi.string().trim().required(),
   city: Joi.string().trim().min(2).required(),
   expectedSalaryMin: Joi.number().positive().required(),
   expectedSalaryMax: Joi.number()

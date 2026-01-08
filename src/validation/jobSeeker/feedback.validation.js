@@ -33,7 +33,6 @@ export const submitFeedbackSchema = Joi.object({
 
     // Required fields
     message: Joi.string()
-        .min(10)
         .required(),
 
     rating: Joi.number()
