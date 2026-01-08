@@ -155,7 +155,7 @@ export const applyForJob = asyncHandler(async (req, res) => {
         jobSeeker._id,
         "job-seeker",
         coinCostPerApplication,
-        `Job Application: ${job.jobTitle}`,
+        `Job Application: ${job.jobTitle} (${coinCostPerApplication} coins)`,
         application._id,
         "application"
       );
