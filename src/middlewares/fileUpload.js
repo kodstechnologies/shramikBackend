@@ -29,7 +29,7 @@ const storage = multer.memoryStorage();
 const fileFilter = (req, file, cb) => {
   // Option to accept all file types (useful for mobile apps with various file types)
   const acceptAllFiles = process.env.ACCEPT_ALL_FILES === "true";
-  
+
   if (acceptAllFiles) {
     // Accept all file types
     cb(null, true);
@@ -199,7 +199,7 @@ const fileFilter = (req, file, cb) => {
     "application/x-binary",
     "application/binary",
   ];
-  
+
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
@@ -219,8 +219,8 @@ export const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB per file limit
-    fieldSize: 10 * 1024 * 1024, // 10MB for non-file fields (like JSON strings in form-data)
+    fileSize: 50 * 1024 * 1024, // 50MB per file limit
+    fieldSize: 50 * 1024 * 1024, // 50MB for non-file fields (like JSON strings in form-data)
     fieldNameSize: 100, // Max field name size
     fields: 20, // Max number of non-file fields
     files: 10, // Max number of file fields
@@ -256,26 +256,26 @@ export const uploadToCloudinaryMiddleware = async (req, res, next) => {
 
       const folder = FIELD_TO_FOLDER[req.file.fieldname] || "documents";
       const resourceType = getResourceType(req.file.mimetype);
-      
+
       const result = await uploadToCloudinary(
         req.file.buffer,
         folder,
         resourceType
       );
-      
+
       // Store Cloudinary URL and public_id in file object
       req.file.cloudinaryUrl = result.secure_url;
       req.file.publicId = result.public_id;
       req.file.url = result.secure_url; // For backward compatibility
     }
-    
+
     // Handle multiple files
     if (req.files) {
       for (const fieldname in req.files) {
         const files = Array.isArray(req.files[fieldname])
           ? req.files[fieldname]
           : [req.files[fieldname]];
-        
+
         for (const file of files) {
           // Validate file has buffer
           if (!file.buffer) {
@@ -288,13 +288,13 @@ export const uploadToCloudinaryMiddleware = async (req, res, next) => {
 
           const folder = FIELD_TO_FOLDER[fieldname] || "documents";
           const resourceType = getResourceType(file.mimetype);
-          
+
           const result = await uploadToCloudinary(
             file.buffer,
             folder,
             resourceType
           );
-          
+
           // Store Cloudinary URL and public_id in file object
           file.cloudinaryUrl = result.secure_url;
           file.publicId = result.public_id;
@@ -302,7 +302,7 @@ export const uploadToCloudinaryMiddleware = async (req, res, next) => {
         }
       }
     }
-    
+
     next();
   } catch (error) {
     console.error("Cloudinary upload error:", error);
@@ -317,29 +317,29 @@ export const uploadToCloudinaryMiddleware = async (req, res, next) => {
  */
 export const getFileUrl = (filePathOrFile) => {
   if (!filePathOrFile) return null;
-  
+
   // If it's a file object with cloudinaryUrl (from Cloudinary upload)
   if (typeof filePathOrFile === "object" && filePathOrFile.cloudinaryUrl) {
     return filePathOrFile.cloudinaryUrl;
   }
-  
+
   // If it's already a URL (Cloudinary URL stored in DB)
   if (typeof filePathOrFile === "string" && filePathOrFile.startsWith("http")) {
     return filePathOrFile;
   }
-  
+
   // If it's a file object with url property
   if (typeof filePathOrFile === "object" && filePathOrFile.url) {
     return filePathOrFile.url;
   }
-  
+
   // If it's a file object with path (local file - for backward compatibility)
   if (typeof filePathOrFile === "object" && filePathOrFile.path) {
     // In production/Vercel, this shouldn't happen, but handle it gracefully
     // Return the path as-is (might be a relative path from old uploads)
     return filePathOrFile.path;
   }
-  
+
   // If it's a string path (local file - for backward compatibility)
   if (typeof filePathOrFile === "string") {
     // If it's already a full URL, return it
@@ -349,6 +349,6 @@ export const getFileUrl = (filePathOrFile) => {
     // Otherwise, it's a local path (shouldn't happen in production)
     return filePathOrFile;
   }
-  
+
   return null;
 };
