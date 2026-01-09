@@ -910,6 +910,7 @@ export const getJobPostById = asyncHandler(async (req, res) => {
     employmentMode: job.employmentMode,
     categories: job.categories,
     tags: job.tags,
+    skills: job.skills || [],
     benefits: job.benefits,
     experienceRange: job.experienceRange,
     experienceLabel,

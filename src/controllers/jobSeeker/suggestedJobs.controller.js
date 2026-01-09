@@ -2,6 +2,7 @@ import ApiResponse from "../../utils/ApiResponse.js";
 import ApiError from "../../utils/ApiError.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { RecruiterJob } from "../../models/recruiter/jobPost/jobPost.model.js";
+import { Application } from "../../models/jobSeeker/application.model.js";
 
 /**
  * Get Suggested Jobs For Job Seeker
@@ -10,7 +11,7 @@ import { RecruiterJob } from "../../models/recruiter/jobPost/jobPost.model.js";
  */
 export const getSuggestedJobs = asyncHandler(async (req, res) => {
   const jobSeeker = req.jobSeeker;
-  
+
   if (!jobSeeker) {
     throw new ApiError(401, "Unauthorized: Job seeker not found");
   }
@@ -24,7 +25,7 @@ export const getSuggestedJobs = asyncHandler(async (req, res) => {
 
   // Get job seeker's skills
   const userSkills = jobSeeker.selectedSkills || jobSeeker.skills || [];
-  
+
   if (userSkills.length === 0) {
     // If no skills, return empty result with message
     return res.status(200).json(
@@ -56,6 +57,17 @@ export const getSuggestedJobs = asyncHandler(async (req, res) => {
     status: "Open", // Only show open jobs
     jobSeekerCategory: jobSeeker.category, // Only show jobs for this job seeker's category
   };
+
+  // Get jobs the user has already applied for and exclude them
+  const appliedApplications = await Application.find(
+    { jobSeeker: jobSeeker._id },
+    { job: 1 }
+  ).lean();
+  const appliedJobIds = appliedApplications.map((app) => app.job);
+
+  if (appliedJobIds.length > 0) {
+    filter._id = { $nin: appliedJobIds }; // Exclude already applied jobs
+  }
 
   // Match jobs based on skills field
   // If job's skills array contains at least one skill from job seeker's skills, show that job
