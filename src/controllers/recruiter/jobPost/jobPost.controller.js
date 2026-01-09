@@ -873,7 +873,7 @@ export const getJobPostById = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Job not found");
   }
 
-  // Fetch coin cost for job application
+  // Fetch coin cost for job applications
   const coinRule = await CoinRule.findOne({ category: "jobSeeker" });
   const coinCostPerApplication = coinRule?.coinCostPerApplication || 0;
 
