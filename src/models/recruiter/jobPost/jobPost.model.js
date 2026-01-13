@@ -108,6 +108,14 @@ const recruiterJobSchema = new Schema(
       trim: true,
       index: true,
     },
+    state: {
+      type: String,
+      trim: true,
+    },
+    address: {
+      type: String,
+      trim: true,
+    },
     expectedSalary: {
       type: salarySchema,
       required: true,

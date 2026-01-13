@@ -249,7 +249,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
  * Supports both state/city names and stateId/cityId from dropdowns
  */
 export const registerNonDegree = asyncHandler(async (req, res) => {
-  const { phone, name, email, gender, dateOfBirth, state, city, stateId, cityId, specializationId, selectedSkills, referralCode } = req.body;
+  const { phone, name, email, gender, dateOfBirth, state, city, stateId, cityId, address, specializationId, selectedSkills, referralCode } = req.body;
 
   // ✅ NORMALIZE selectedSkills (FIX FLUTTER FORM-DATA BUG)
   let finalSelectedSkills = normalizeSkills(selectedSkills);
@@ -353,6 +353,9 @@ export const registerNonDegree = asyncHandler(async (req, res) => {
   jobSeeker.dateOfBirth = new Date(dateOfBirth);
   jobSeeker.state = stateName;
   jobSeeker.city = cityName;
+  if (address !== undefined) {
+    jobSeeker.address = address?.trim() || null;
+  }
   jobSeeker.specializationId = specializationId;
   jobSeeker.selectedSkills = finalSelectedSkills;
   jobSeeker.aadhaarCard = aadhaarCard;
@@ -414,7 +417,7 @@ export const registerNonDegree = asyncHandler(async (req, res) => {
  * Supports stateId/cityId for location
  */
 export const step1Registration = asyncHandler(async (req, res) => {
-  const { phone, name, email, gender, dateOfBirth, stateId, cityId, referralCode } = req.body;
+  const { phone, name, email, gender, dateOfBirth, stateId, cityId, address, referralCode } = req.body;
 
   // Cross-table validation: Check if phone exists in Recruiter table
   const existingRecruiter = await Recruiter.findOne({ phone });
@@ -501,6 +504,9 @@ export const step1Registration = asyncHandler(async (req, res) => {
   if (cityName) {
     jobSeeker.city = cityName;
     console.log("📍 Setting jobSeeker.city to:", cityName);
+  }
+  if (address !== undefined) {
+    jobSeeker.address = address?.trim() || null;
   }
 
   jobSeeker.aadhaarCard = aadhaarCard;
@@ -839,6 +845,13 @@ export const step3Registration = asyncHandler(async (req, res) => {
   jobSeeker.education = finalEducation;
   jobSeeker.experienceStatus = experienceStatus;
   jobSeeker.yearOfExperience = experienceStatus ? (yearOfExperience || "") : "";
+
+  // Debug logging for yearOfExperience
+  console.log("📋 Step 3 Registration - Experience Debug:");
+  console.log("  - experienceStatus:", experienceStatus);
+  console.log("  - yearOfExperience (from req.body):", yearOfExperience);
+  console.log("  - yearOfExperience (saved):", jobSeeker.yearOfExperience);
+
   jobSeeker.resume = resume;
   if (experienceCertificate) {
     jobSeeker.experienceCertificate = experienceCertificate;
@@ -892,11 +905,42 @@ export const getCategories = asyncHandler(async (req, res) => {
 
 /**
  * Get All Specializations (Public endpoint for registration)
- * Returns all specializations formatted for dropdown selection
+ * Returns specializations formatted for dropdown selection
+ * If phone or jobSeekerId provided, filters by job seeker's category
  */
 export const getAllSpecializations = asyncHandler(async (req, res) => {
-  const specializations = await Specialization.find({ status: "Active" })
-    .select("name skills status")
+  const { phone, jobSeekerId, category: queryCategory } = req.query;
+
+  // Priority: 1. Query Param, 2. Token (Auto-fill), 3. DB Lookup (Public)
+  let category = queryCategory;
+
+  if (!category && req.jobSeeker?.category) {
+    category = req.jobSeeker.category;
+  }
+
+  // If no category yet, try public lookup
+  if (!category) {
+    if (jobSeekerId) {
+      const jobSeeker = await JobSeeker.findById(jobSeekerId).select("category");
+      if (jobSeeker) {
+        category = jobSeeker.category;
+      }
+    } else if (phone) {
+      const jobSeeker = await JobSeeker.findOne({ phone }).select("category");
+      if (jobSeeker) {
+        category = jobSeeker.category;
+      }
+    }
+  }
+
+  // Build query - filter by userType if category found
+  const query = { status: "Active" };
+  if (category) {
+    query.userType = category;
+  }
+
+  const specializations = await Specialization.find(query)
+    .select("name skills status userType")
     .sort({ name: 1 })
     .lean();
 
@@ -906,6 +950,7 @@ export const getAllSpecializations = asyncHandler(async (req, res) => {
     value: spec._id.toString(),
     label: spec.name,
     name: spec.name,
+    userType: spec.userType,
   }));
 
   return res
@@ -919,10 +964,8 @@ export const getAllSpecializations = asyncHandler(async (req, res) => {
 });
 
 /**
- * Get Specialization with Skills and Questions
- * Used when user selects a specialization from dropdown
- * Returns all skills for that specialization (for user to select from)
- * Also returns questions related to that specialization
+ * Get Specialization Skills
+ * Returns skills for a given specialization
  */
 export const getSpecializationSkills = asyncHandler(async (req, res) => {
   const { specializationId } = req.params;
@@ -963,9 +1006,9 @@ export const getSpecializationSkills = asyncHandler(async (req, res) => {
           specialization: {
             _id: specialization._id,
             name: specialization.name,
-            skills: specialization.skills || [], // Raw skills array
-            allSkills: allSkills, // Formatted for frontend selection
+            skills: allSkills, // Formatted for frontend selection
           },
+
           questionSet: questionSet
             ? {
               _id: questionSet._id,
@@ -975,7 +1018,7 @@ export const getSpecializationSkills = asyncHandler(async (req, res) => {
             }
             : null,
         },
-        "Specialization, skills, and questions fetched successfully"
+        "Specialization and skills fetched successfully"
       )
     );
 });
@@ -1285,6 +1328,7 @@ export const getJobSeekerProfile = asyncHandler(async (req, res) => {
     // Location
     state: profile.state,
     city: profile.city,
+    address: profile.address,
     // Skills & Specialization
     specializationId: profile.specializationId?._id || null,
     specialization: profile.specializationId
@@ -1361,6 +1405,7 @@ export const updateJobSeekerProfile = asyncHandler(async (req, res) => {
     specializationId,
     selectedSkills,
     aboutMe,
+    address,
   } = req.body;
 
   // Find the job seeker
@@ -1406,6 +1451,11 @@ export const updateJobSeekerProfile = asyncHandler(async (req, res) => {
     if (city !== undefined) {
       profile.city = city?.trim() || null;
     }
+  }
+
+  // Update address
+  if (address !== undefined) {
+    profile.address = address?.trim() || null;
   }
 
   // Update specialization and skills
@@ -1518,4 +1568,3 @@ export const updateJobSeekerProfile = asyncHandler(async (req, res) => {
     )
   );
 });
-

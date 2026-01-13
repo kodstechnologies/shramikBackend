@@ -100,6 +100,7 @@ export const nonDegreeRegistrationSchema = Joi.object({
   // Option 2: State and City IDs (from dropdowns)
   stateId: stateIdSchema,
   cityId: cityIdSchema,
+  address: Joi.string().trim().optional().allow(""),
   specializationId: Joi.string()
     .pattern(/^[0-9a-fA-F]{24}$/)
     .required()
@@ -149,6 +150,7 @@ export const step1RegistrationSchema = Joi.object({
   // Location - State and City IDs (from dropdowns)
   stateId: stateIdSchema,
   cityId: cityIdSchema,
+  address: Joi.string().trim().max(500).optional().allow(""),
   referralCode: referralCodeSchema,
   // category is optional - already set in verify-otp and stored in job seeker record
   // Files will be handled separately via multer
@@ -239,6 +241,7 @@ export const step3RegistrationSchema = Joi.object({
     "any.required": "Percentage or Grade is required",
   }),
   experienceStatus: Joi.boolean().required(),
+  yearOfExperience: Joi.alternatives().try(Joi.string(), Joi.number()).optional().allow(""),
   // Files (resume, documents, experienceCertificate) will be handled via multer
 })
   .or("phone", "jobSeekerId") // At least one of phone or jobSeekerId is required
@@ -329,6 +332,7 @@ export const updateJobSeekerProfileSchema = Joi.object({
     .messages({
       "string.pattern.base": "Invalid city ID",
     }),
+  address: Joi.string().trim().max(500).optional().allow(""),
   specializationId: Joi.string()
     .pattern(/^[0-9a-fA-F]{24}$/)
     .optional()

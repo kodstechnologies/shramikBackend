@@ -10,6 +10,11 @@ const specializationSchema = new Schema(
       trim: true,
       unique: true,
     },
+    userType: {
+      type: String,
+      enum: ["Non-Degree Holder", "Diploma Holder", "ITI Holder"],
+      required: true,
+    },
     status: {
       type: String,
       enum: ["Active", "Inactive"],

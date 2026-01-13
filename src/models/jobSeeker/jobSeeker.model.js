@@ -54,6 +54,10 @@ const jobSeekerSchema = new Schema(
       type: String,
       trim: true,
     },
+    address: {
+      type: String,
+      trim: true,
+    },
 
     // Skills & Specialization
     specializationId: {

@@ -1,6 +1,7 @@
 import { JobSeeker } from "../../../models/jobSeeker/jobSeeker.model.js";
 import { Recruiter } from "../../../models/recruiter/recruiter.model.js";
 import { RecruiterJob } from "../../../models/recruiter/jobPost/jobPost.model.js";
+import { Application } from "../../../models/jobSeeker/application.model.js";
 import ApiResponse from "../../../utils/ApiResponse.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 
@@ -259,5 +260,119 @@ export const getRecentTransactions = asyncHandler(async (req, res) => {
                 dateRange: startDate && endDate ? { startDate, endDate } : null,
             }
         )
+    );
+});
+
+/**
+ * Get Dashboard Analytics Data
+ * Returns aggregated data for graphs (Users, Jobs, Coins)
+ * 
+ * Query params:
+ * - startDate: ISO date string
+ * - endDate: ISO date string
+ */
+export const getDashboardAnalytics = asyncHandler(async (req, res) => {
+    const { startDate, endDate } = parseDateRange(req.query);
+
+    // Default to last 30 days if no date range
+    const effectiveEndDate = endDate || new Date();
+    effectiveEndDate.setHours(23, 59, 59, 999);
+
+    // If no start date, go back 30 days from effectiveEndDate
+    const effectiveStartDate = startDate ? new Date(startDate) : new Date(effectiveEndDate);
+    if (!startDate) {
+        effectiveStartDate.setDate(effectiveStartDate.getDate() - 30);
+    }
+    effectiveStartDate.setHours(0, 0, 0, 0);
+
+    // Helper for aggregation
+    const getDailyCounts = async (Model, matchQuery, dateField = 'createdAt') => {
+        const pipeline = [
+            {
+                $match: {
+                    ...matchQuery,
+                    [dateField]: { $gte: effectiveStartDate, $lte: effectiveEndDate }
+                }
+            },
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: `$${dateField}` } },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ];
+        return await Model.aggregate(pipeline);
+    };
+
+    // Import CoinTransaction dynamically
+    const { CoinTransaction } = await import("../../../models/coin/coinTransaction.model.js");
+
+    // 1. User Metrics (JobSeekers)
+    // - New Users: Created in range
+    // - Active Users (proxy): Created in range AND status is Active
+    // - Inactive Users (proxy): Created in range AND status != Active
+    const [newUsers, activeUsersCreated, inactiveUsersCreated] = await Promise.all([
+        getDailyCounts(JobSeeker, {}),
+        getDailyCounts(JobSeeker, { status: "Active" }),
+        getDailyCounts(JobSeeker, { status: { $ne: "Active" } })
+    ]);
+
+    // 2. Job Metrics
+    // - Posts: Created in range
+    // - Applications: Created in range
+    const [jobPosts, jobApplications] = await Promise.all([
+        getDailyCounts(RecruiterJob, {}),
+        getDailyCounts(Application, {})
+    ]);
+
+    // 3. Coin Metrics
+    const [coinPurchases, coinSpends, coinRewards] = await Promise.all([
+        getDailyCounts(CoinTransaction, { transactionType: "purchase" }),
+        getDailyCounts(CoinTransaction, { transactionType: "spend" }),
+        getDailyCounts(CoinTransaction, { transactionType: "reward" })
+    ]);
+
+    // Generate full date range keys
+    const dateMap = new Map();
+    const dates = [];
+    const current = new Date(effectiveStartDate);
+
+    while (current <= effectiveEndDate) {
+        const dateStr = current.toISOString().split('T')[0];
+        dates.push(dateStr);
+        dateMap.set(dateStr, 0); // Initialize with 0
+        current.setDate(current.getDate() + 1);
+    }
+
+    // Helper to fill data
+    const fillDates = (dataArray) => {
+        const resultMap = new Map(dateMap); // Copy initialized map
+        dataArray.forEach(item => {
+            if (resultMap.has(item._id)) {
+                resultMap.set(item._id, item.count);
+            }
+        });
+        return Array.from(resultMap.values()); // Return counts in date order
+    };
+
+    return res.status(200).json(
+        ApiResponse.success({
+            dates,
+            users: {
+                new: fillDates(newUsers),
+                active: fillDates(activeUsersCreated),
+                inactive: fillDates(inactiveUsersCreated)
+            },
+            jobs: {
+                posted: fillDates(jobPosts),
+                applied: fillDates(jobApplications)
+            },
+            coins: {
+                purchase: fillDates(coinPurchases),
+                spend: fillDates(coinSpends),
+                reward: fillDates(coinRewards)
+            }
+        }, "Dashboard analytics fetched successfully")
     );
 });

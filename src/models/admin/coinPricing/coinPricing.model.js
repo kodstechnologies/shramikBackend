@@ -87,6 +87,10 @@ const coinRuleSchema = new Schema(
         default: 50, // Coins given to the person who referred
         min: 0,
       },
+      refereeRewardEnabled: {
+        type: Boolean,
+        default: true, // Toggle to enable/disable referee coins
+      },
       refereeCoins: {
         type: Number,
         default: 20, // Coins given to the new user who signed up

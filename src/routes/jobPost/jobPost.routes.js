@@ -7,12 +7,17 @@ import {
   deactivateJob,
   getRecruiterJobs,
   repostJob,
+  updateJobPost,
 } from "../../controllers/recruiter/jobPost/jobPost.controller.js";
 import { validateRequest } from "../../middlewares/recruiter/validateRecruiter.js";
 import { createRecruiterJobSchema } from "../../validation/recruiter/jobPost/jobPost.validation.js";
 import { verifyRecruiterJWT } from "../../middlewares/recruiter/authRecruiter.js";
 import { optionalJobSeekerAuth } from "../../middlewares/jobSeeker/authJobSeeker.js";
 import { ensureRecruiterProfileComplete } from "../../middlewares/recruiter/ensureProfileComplete.js";
+import multer from "multer";
+
+// Multer middleware for parsing form-data (no file uploads, just text fields)
+const parseFormData = multer().none();
 
 const router = Router();
 
@@ -51,6 +56,15 @@ router.post(
  * Requires: Recruiter authentication (JWT token)
  */
 router.patch("/jobs/:jobId/vacancy-count", verifyRecruiterJWT, updateVacancyCount);
+
+/**
+ * PATCH /api/recruiters/jobs/:jobId
+ * Edit/Update a job post
+ * Can update all fields except vacancyCount
+ * Supports both JSON and form-data
+ * Requires: Recruiter authentication (JWT token)
+ */
+router.patch("/jobs/:jobId", verifyRecruiterJWT, parseFormData, updateJobPost);
 
 
 

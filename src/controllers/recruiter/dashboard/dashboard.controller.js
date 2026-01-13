@@ -24,7 +24,7 @@ export const getRecruiterDashboard = asyncHandler(async (req, res) => {
   // Get application counts
   const totalApplications = await Application.countDocuments({
     job: { $in: jobIds },
-    status: { $ne: "Withdrawn" }, // Exclude withdrawn applications
+    status: { $nin: ["Withdrawn", "Shortlisted", "Rejected"] }, // Exclude withdrawn, shortlisted, and rejected applications
   });
 
   const shortlistedApplications = await Application.countDocuments({

@@ -62,8 +62,8 @@ export const getJobsWithApplications = asyncHandler(async (req, res) => {
   if (applicationStatus) {
     applicationFilter.status = applicationStatus;
   } else {
-    // By default, exclude withdrawn applications
-    applicationFilter.status = { $ne: "Withdrawn" };
+    // By default, exclude withdrawn, shortlisted, and rejected applications
+    applicationFilter.status = { $nin: ["Withdrawn", "Shortlisted", "Rejected"] };
   }
 
   // Pagination
@@ -179,7 +179,7 @@ export const getJobsWithApplications = asyncHandler(async (req, res) => {
     }),
     applied: await Application.countDocuments({
       job: { $in: jobIds },
-      status: "Applied",
+      status: { $in: ["Applied", "Pending"] },
     }),
     shortlisted: await Application.countDocuments({
       job: { $in: jobIds },
@@ -272,7 +272,7 @@ export const getJobApplicants = asyncHandler(async (req, res) => {
     .populate({
       path: "jobSeeker",
       select:
-        "name email phone gender dateOfBirth category state city specializationId selectedSkills skills profilePhoto resume education experienceStatus aadhaarCard status",
+        "name email phone gender dateOfBirth category state city specializationId selectedSkills skills profilePhoto resume education experienceStatus aadhaarCard status experienceCertificate",
       populate: {
         path: "specializationId",
         select: "name skills",
@@ -318,6 +318,7 @@ export const getJobApplicants = asyncHandler(async (req, res) => {
             : null,
           education: jobSeeker.education || null,
           experienceStatus: jobSeeker.experienceStatus,
+          experienceCertificate: jobSeeker.experienceCertificate || null,
           status: jobSeeker.status,
         },
       };
@@ -394,7 +395,7 @@ export const getApplicantFilterOptions = asyncHandler(async (req, res) => {
   })
     .populate({
       path: "jobSeeker",
-      select: "city state gender dateOfBirth experienceStatus"
+      select: "city state gender dateOfBirth experienceStatus yearOfExperience"
     })
     .lean();
 
@@ -428,6 +429,19 @@ export const getApplicantFilterOptions = asyncHandler(async (req, res) => {
     return "46+";
   };
 
+  // Helper function to get experience range label
+  const getExperienceRange = (years) => {
+    if (years === null || years === undefined || years === "") return "Fresher";
+    const y = parseFloat(years);
+    if (isNaN(y) || y === 0) return "Fresher";
+    if (y <= 1) return "0-1 Years";
+    if (y <= 3) return "1-3 Years";
+    if (y <= 5) return "3-5 Years";
+    if (y <= 8) return "5-8 Years";
+    if (y <= 12) return "8-12 Years";
+    return "12+ Years";
+  };
+
   // Process each application
   applications.forEach((app) => {
     const jobSeeker = app.jobSeeker;
@@ -448,9 +462,12 @@ export const getApplicantFilterOptions = asyncHandler(async (req, res) => {
       genders.add(jobSeeker.gender);
     }
 
-    // Experience
+    // Experience (Ranges)
     if (jobSeeker.experienceStatus) {
-      experienceLevels.add(jobSeeker.experienceStatus);
+      const expRange = getExperienceRange(jobSeeker.yearOfExperience);
+      if (expRange) experienceLevels.add(expRange);
+    } else {
+      experienceLevels.add("Fresher");
     }
 
     // Age Range
@@ -466,12 +483,10 @@ export const getApplicantFilterOptions = asyncHandler(async (req, res) => {
   const sortedStates = Array.from(states).sort();
   const sortedGenders = Array.from(genders).sort();
 
-  // Sort experience levels in logical order
-  const experienceOrder = ["Fresher", "1-3 years", "4-7 years", "8+ years"];
+  // Sort experience levels (ranges)
+  const expRangeOrder = ["Fresher", "0-1 Years", "1-3 Years", "3-5 Years", "5-8 Years", "8-12 Years", "12+ Years"];
   const sortedExperience = Array.from(experienceLevels).sort((a, b) => {
-    const indexA = experienceOrder.indexOf(a);
-    const indexB = experienceOrder.indexOf(b);
-    return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+    return expRangeOrder.indexOf(a) - expRangeOrder.indexOf(b);
   });
 
   // Sort age ranges in logical order
@@ -797,7 +812,7 @@ export const getJobsWithShortlistedCandidates = asyncHandler(async (req, res) =>
 
   // Step 1: Get all jobs created by recruiter
   const jobs = await RecruiterJob.find({ recruiter: recruiter._id })
-    .select("jobTitle status city jobType employmentMode createdAt")
+    .select("jobTitle status city jobType employmentMode createdAt applicationCount vacancyCount companySnapshot")
     .lean();
 
   const jobIds = jobs.map((job) => job._id);

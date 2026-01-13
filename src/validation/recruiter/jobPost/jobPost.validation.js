@@ -42,7 +42,17 @@ const stringArray = Joi.array().items(Joi.string().trim().min(1)).default([]);
 export const createRecruiterJobSchema = Joi.object({
   jobTitle: Joi.string().trim().min(3).required(),
   jobDescription: Joi.string().trim().required(),
-  city: Joi.string().trim().min(2).required(),
+  city: Joi.string().trim().min(2).optional(),
+  cityId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().messages({
+    "string.pattern.base": "City ID must be a valid MongoDB ObjectId",
+  }),
+  state: Joi.string().trim().optional(),
+  stateId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().messages({
+    "string.pattern.base": "State ID must be a valid MongoDB ObjectId",
+  }),
+  address: Joi.string().trim().required().messages({
+    "any.required": "Address is required",
+  }),
   expectedSalaryMin: Joi.number().positive().required(),
   expectedSalaryMax: Joi.number()
     .positive()

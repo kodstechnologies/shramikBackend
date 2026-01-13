@@ -93,6 +93,7 @@ export const sendBulkEmail = asyncHandler(async (req, res) => {
         content,
         templateId,
         recipientType,
+        customEmails,
         filters = {},
         scheduledAt
     } = req.body;
@@ -102,6 +103,15 @@ export const sendBulkEmail = asyncHandler(async (req, res) => {
         return res.status(400).json(
             ApiResponse.error("Subject and recipientType are required")
         );
+    }
+
+    // Validate custom emails if recipientType is 'custom'
+    if (recipientType === 'custom') {
+        if (!customEmails || !Array.isArray(customEmails) || customEmails.length === 0) {
+            return res.status(400).json(
+                ApiResponse.error("customEmails array is required when recipientType is 'custom'")
+            );
+        }
     }
 
     let emailContent = content;
@@ -118,7 +128,18 @@ export const sendBulkEmail = asyncHandler(async (req, res) => {
     }
 
     // Get recipients
-    const recipients = await getRecipients(recipientType, filters);
+    let recipients;
+    if (recipientType === 'custom') {
+        // Use custom emails directly
+        recipients = customEmails.map(email => ({
+            email: email.toLowerCase().trim(),
+            name: email.split('@')[0], // Use email prefix as name
+            userType: 'custom',
+            _id: null,
+        }));
+    } else {
+        recipients = await getRecipients(recipientType, filters);
+    }
 
     if (recipients.length === 0) {
         return res.status(400).json(

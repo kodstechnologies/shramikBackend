@@ -11,6 +11,7 @@ import { CoinPackage, CoinRule } from "../../models/admin/coinPricing/coinPricin
 import { JobSeeker } from "../../models/jobSeeker/jobSeeker.model.js";
 import { Referral } from "../../models/referral/referral.model.js";
 import { ensureReferralCode } from "../../utils/referralCode.js";
+import { CoinTransaction } from "../../models/coin/coinTransaction.model.js";
 
 /**
  * Get current coin balance
@@ -74,20 +75,68 @@ export const getCoinPackages = asyncHandler(async (req, res) => {
     .sort({ coins: 1 })
     .lean();
 
-  const formattedPackages = packages.map((pkg) => ({
-    id: pkg._id.toString(),
-    name: pkg.name,
-    coins: pkg.coins,
-    price: {
-      amount: pkg.price.amount,
-      currency: pkg.price.currency,
-    },
+  // Helper to get popular package name
+  const getPopularPackageName = async (category) => {
+    // Defines standard description prefix used in purchases
+    const descriptionPrefix = "Coin Purchase: ";
+
+    // Aggregate purchases to find most common description
+    const popularStats = await CoinTransaction.aggregate([
+      {
+        $match: {
+          transactionType: "purchase",
+          status: "success",
+          description: { $regex: `^${descriptionPrefix}` }
+        }
+      },
+      { $group: { _id: "$description", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 1 }
+    ]);
+
+    if (popularStats.length > 0) {
+      // Extract package name from description "Coin Purchase: PackageName"
+      return popularStats[0]._id.replace(descriptionPrefix, "");
+    }
+    return null;
+  };
+
+  const formattedPackagesPromise = Promise.all(packages.map(async (pkg) => {
+    return {
+      id: pkg._id.toString(),
+      name: pkg.name,
+      coins: pkg.coins,
+      price: {
+        amount: pkg.price.amount,
+        currency: pkg.price.currency,
+      },
+    };
   }));
+
+  const [formattedPackages, popularPackageName] = await Promise.all([
+    formattedPackagesPromise,
+    getPopularPackageName("jobSeeker") // Pass category if needed for future refinement
+  ]);
+
+  // If no transactions yet, default to the one with 'Popular' in name or the middle one
+  // For now, we only tag if we have data or if the package name matches
+
+  const finalPackages = formattedPackages.map(pkg => ({
+    ...pkg,
+    isPopular: popularPackageName ? pkg.name === popularPackageName : false,
+    tag: (popularPackageName && pkg.name === popularPackageName)
+      ? "Most bought by users"
+      : null
+  }));
+
+  // Fallback: If no stats, maybe flag the one with highest price or middle? 
+  // User asked for "most buy by the user", so strictly data-driven is best. 
+  // If no data, no tag.
 
   return res.status(200).json(
     ApiResponse.success(
       {
-        packages: formattedPackages,
+        packages: finalPackages,
       },
       "Coin packages retrieved successfully"
     )

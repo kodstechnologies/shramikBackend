@@ -26,6 +26,10 @@ const buildSpecializationPayload = (body, userId, options = {}) => {
     payload.name = body.name.trim();
   }
 
+  if (typeof body?.userType === "string") {
+    payload.userType = body.userType;
+  }
+
   if (userId) {
     payload.updatedBy = userId;
     if (includeCreatedBy) {
@@ -56,7 +60,7 @@ export const createSpecialization = asyncHandler(async (req, res) => {
     { ...req.body, name: normalizedName },
     req.user?._id,
     {
-    includeCreatedBy: true,
+      includeCreatedBy: true,
     }
   );
 
@@ -77,11 +81,14 @@ export const createSpecialization = asyncHandler(async (req, res) => {
 });
 
 export const getAllSpecializations = asyncHandler(async (req, res) => {
-  const { status } = req.query;
+  const { status, userType } = req.query;
 
   const query = {};
   if (status && ["Active", "Inactive"].includes(status)) {
     query.status = status;
+  }
+  if (userType && ["Non-Degree Holder", "Diploma Holder", "ITI Holder"].includes(userType)) {
+    query.userType = userType;
   }
 
   const specializations = await Specialization.find(query)
@@ -129,18 +136,18 @@ export const updateSpecialization = asyncHandler(async (req, res) => {
 
   if (payload.name) {
     if (specialization.name.toLowerCase() !== payload.name.toLowerCase()) {
-    const duplicate = await Specialization.findOne({
+      const duplicate = await Specialization.findOne({
         name: payload.name,
-      _id: { $ne: id },
-    });
+        _id: { $ne: id },
+      });
 
-    if (duplicate) {
+      if (duplicate) {
         throw new ApiError(
           409,
           "Another specialization with this name exists"
         );
+      }
     }
-  }
   }
 
   Object.assign(specialization, {

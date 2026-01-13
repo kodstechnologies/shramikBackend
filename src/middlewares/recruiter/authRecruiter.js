@@ -21,6 +21,12 @@ export const verifyRecruiterJWT = asyncHandler(async (req, res, next) => {
   try {
     decodedToken = verifyAccessToken(token);
   } catch (error) {
+    console.log("🔐 JWT Verification Failed:");
+    console.log("  - Token (first 50 chars):", token?.substring(0, 50) + "...");
+    console.log("  - Error name:", error.name);
+    console.log("  - Error message:", error.message);
+    console.log("  - Request URL:", req.originalUrl);
+
     if (error.name === "TokenExpiredError") {
       throw new ApiError(401, "Access token expired. Please refresh your token.");
     } else if (error.name === "JsonWebTokenError") {

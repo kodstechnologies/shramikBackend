@@ -24,7 +24,7 @@ import {
 } from "../../controllers/jobSeeker/application.controller.js";
 import coinRoutes from "./coin.routes.js";
 import { validateRequest } from "../../middlewares/jobSeeker/validateJobSeeker.js";
-import { verifyJobSeekerJWT } from "../../middlewares/jobSeeker/authJobSeeker.js";
+import { verifyJobSeekerJWT, optionalJobSeekerAuth } from "../../middlewares/jobSeeker/authJobSeeker.js";
 import {
   sendOTPSchema,
   verifyOTPSchema,
@@ -109,8 +109,8 @@ router.post(
 // Get Available Categories (Public - for registration)
 router.get("/categories", getCategories);
 
-// Get All Specializations (Public - for registration) - Must be before /:phone route
-router.get("/specializations", getAllSpecializations);
+// Get All Specializations (Public/Auth - for registration) - Must be before /:phone route
+router.get("/specializations", optionalJobSeekerAuth, getAllSpecializations);
 
 // Get Specialization with Skills and Questions - Must be before /:phone route
 router.get(

@@ -3,6 +3,7 @@ import {
     getDashboardStats,
     getUserDistribution,
     getRecentTransactions,
+    getDashboardAnalytics,
 } from "../../../controllers/admin/dashboard/dashboard.controller.js";
 import { verifyJWT } from "../../../middlewares/authMiddleware.js";
 
@@ -31,5 +32,12 @@ router.get("/user-distribution", getUserDistribution);
  * @access  Admin
  */
 router.get("/recent-transactions", getRecentTransactions);
+
+/**
+ * @route   GET /api/admin/dashboard/analytics
+ * @desc    Get dashboard analytics graph data
+ * @access  Admin
+ */
+router.get("/analytics", getDashboardAnalytics);
 
 export default router;

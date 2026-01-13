@@ -44,6 +44,9 @@ export const processReferralReward = async (userId, userType, actionType) => {
         const referralSettings = coinRule?.referralSettings || {};
         const isReferralEnabled = referralSettings.isEnabled !== false;
         const referrerCoins = referralSettings.referrerCoins || 50;
+        // Referee coins: use configured value, or default to 50% of referrer coins
+        const refereeRewardEnabled = referralSettings.refereeRewardEnabled !== false;
+        const refereeCoins = referralSettings.refereeCoins ?? Math.floor(referrerCoins / 2);
         const maxReferrals = referralSettings.maxReferralsPerUser || 0;
 
         if (!isReferralEnabled) {
@@ -70,6 +73,8 @@ export const processReferralReward = async (userId, userType, actionType) => {
 
         console.log("🎁 Referrer Phone:", referrerDoc.phone);
         console.log("🎁 Coins to Award:", referrerCoins);
+        console.log("🎁 Referee Reward Enabled:", refereeRewardEnabled);
+        console.log("🎁 Referee Coins:", refereeCoins);
         console.log("🎁 Current Referrals:", currentReferrals, "| Max:", maxReferrals === 0 ? "Unlimited" : maxReferrals);
         console.log("🎁 Can Reward:", canReward);
 
@@ -94,7 +99,27 @@ export const processReferralReward = async (userId, userType, actionType) => {
             0,
             "referral"
         );
-        console.log("🎁 addCoins result:", JSON.stringify(coinResult, null, 2));
+        console.log("🎁 addCoins result for referrer:", JSON.stringify(coinResult, null, 2));
+
+        // Award coins to referee (the new user who signed up with referral code)
+        // Only award if referee reward is enabled
+        let actualRefereeCoins = 0;
+        if (refereeRewardEnabled && refereeCoins > 0) {
+            actualRefereeCoins = refereeCoins;
+            const refereeUserType = userType === "Recruiter" ? "recruiter" : "job-seeker";
+            console.log("🎁 Awarding", refereeCoins, "coins to referee (new user)");
+            const refereeCoinResult = await addCoins(
+                userId,
+                refereeUserType,
+                refereeCoins,
+                "Welcome bonus: Reward for signing up with a referral code",
+                0,
+                "referral"
+            );
+            console.log("🎁 addCoins result for referee:", JSON.stringify(refereeCoinResult, null, 2));
+        } else if (!refereeRewardEnabled) {
+            console.log("🎁 ⚠️ Referee reward is disabled, skipping referee coins");
+        }
 
         // Update referrer's total referrals count
         await referrerModel.findByIdAndUpdate(pendingReferral.referrer, {
@@ -105,17 +130,19 @@ export const processReferralReward = async (userId, userType, actionType) => {
         // Update referral status to rewarded
         pendingReferral.status = "rewarded";
         pendingReferral.referrerCoinsAwarded = referrerCoins;
+        pendingReferral.refereeCoinsAwarded = actualRefereeCoins;
         pendingReferral.note = `Coins awarded on ${actionType}`;
         await pendingReferral.save();
         console.log("🎁 Updated referral status to 'rewarded'");
 
-        console.log("🎁 ✅ REFERRAL SUCCESS! Coins awarded:", referrerCoins);
+        console.log("🎁 ✅ REFERRAL SUCCESS! Referrer awarded:", referrerCoins, "| Referee awarded:", actualRefereeCoins);
         console.log("🎁 ═══════════════════════════════════════════════════");
 
         return {
             referredBy: pendingReferral.referrer,
             referrerType: pendingReferral.referrerType,
             referrerCoinsAwarded: referrerCoins,
+            refereeCoinsAwarded: actualRefereeCoins,
             actionType
         };
     } catch (error) {

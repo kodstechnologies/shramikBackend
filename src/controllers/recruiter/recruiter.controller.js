@@ -222,6 +222,7 @@ export const registerRecruiter = asyncHandler(async (req, res) => {
     aboutMe,
     description, // Flutter field name
     referralCode,
+    address,
   } = req.body;
 
   // Debug logging
@@ -309,6 +310,11 @@ export const registerRecruiter = asyncHandler(async (req, res) => {
     // Fallback to plain names (use normalized values)
     recruiter.state = normalizedState || recruiter.state;
     recruiter.city = normalizedCity || recruiter.city;
+  }
+
+  // Update address
+  if (address !== undefined) {
+    recruiter.address = address?.trim() || null;
   }
 
   // Update additional business info
@@ -543,6 +549,7 @@ export const getRecruiterProfile = asyncHandler(async (req, res) => {
     // Location
     state: profile.state,
     city: profile.city,
+    address: profile.address || null,
     // Documents
     profilePhoto: profile.profilePhoto,
     companyLogo: profile.companyLogo,
@@ -592,6 +599,7 @@ export const updateRecruiterProfile = asyncHandler(async (req, res) => {
     businessType,
     establishedFrom,
     aboutMe,
+    address,
   } = req.body;
 
   // Find the recruiter
@@ -639,6 +647,10 @@ export const updateRecruiterProfile = asyncHandler(async (req, res) => {
       profile.city = city?.trim() || null;
     }
   }
+  // Update address
+  if (address !== undefined) {
+    profile.address = address?.trim() || null;
+  }
   if (website !== undefined) {
     profile.website = website?.trim() || null;
   }
@@ -682,6 +694,7 @@ export const updateRecruiterProfile = asyncHandler(async (req, res) => {
     establishedFrom: profile.establishedFrom,
     state: profile.state,
     city: profile.city,
+    address: profile.address || null,
     profilePhoto: profile.profilePhoto,
     companyLogo: profile.companyLogo,
     documents: profile.documents || [],

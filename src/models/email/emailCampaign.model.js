@@ -38,7 +38,7 @@ const emailCampaignSchema = new Schema(
         // Recipients
         recipientType: {
             type: String,
-            enum: ["job-seeker", "recruiter", "all"],
+            enum: ["job-seeker", "recruiter", "all", "custom"],
             required: true,
         },
 

@@ -11,6 +11,7 @@ import { CoinPackage, CoinRule } from "../../models/admin/coinPricing/coinPricin
 import { Recruiter } from "../../models/recruiter/recruiter.model.js";
 import { Referral } from "../../models/referral/referral.model.js";
 import { ensureReferralCode } from "../../utils/referralCode.js";
+import { CoinTransaction } from "../../models/coin/coinTransaction.model.js";
 
 /**
  * Get current coin balance
@@ -74,20 +75,62 @@ export const getCoinPackages = asyncHandler(async (req, res) => {
     .sort({ coins: 1 })
     .lean();
 
-  const formattedPackages = packages.map((pkg) => ({
-    id: pkg._id.toString(),
-    name: pkg.name,
-    coins: pkg.coins,
-    price: {
-      amount: pkg.price.amount,
-      currency: pkg.price.currency,
-    },
+  // Helper to get popular package name
+  const getPopularPackageName = async (category) => {
+    // Defines standard description prefix used in purchases
+    const descriptionPrefix = "Coin Purchase: ";
+
+    // Aggregate purchases to find most common description
+    const popularStats = await CoinTransaction.aggregate([
+      {
+        $match: {
+          transactionType: "purchase",
+          status: "success",
+          userType: "recruiter", // Ensure we only count recruiter purchases
+          description: { $regex: `^${descriptionPrefix}` }
+        }
+      },
+      { $group: { _id: "$description", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 1 }
+    ]);
+
+    if (popularStats.length > 0) {
+      // Extract package name from description "Coin Purchase: PackageName"
+      return popularStats[0]._id.replace(descriptionPrefix, "");
+    }
+    return null;
+  };
+
+  const formattedPackagesPromise = Promise.all(packages.map(async (pkg) => {
+    return {
+      id: pkg._id.toString(),
+      name: pkg.name,
+      coins: pkg.coins,
+      price: {
+        amount: pkg.price.amount,
+        currency: pkg.price.currency,
+      },
+    };
+  }));
+
+  const [formattedPackages, popularPackageName] = await Promise.all([
+    formattedPackagesPromise,
+    getPopularPackageName("recruiter")
+  ]);
+
+  const finalPackages = formattedPackages.map(pkg => ({
+    ...pkg,
+    isPopular: popularPackageName ? pkg.name === popularPackageName : false,
+    tag: (popularPackageName && pkg.name === popularPackageName)
+      ? "Most bought by users"
+      : null
   }));
 
   return res.status(200).json(
     ApiResponse.success(
       {
-        packages: formattedPackages,
+        packages: finalPackages,
       },
       "Coin packages retrieved successfully"
     )

@@ -4,6 +4,7 @@ import { asyncHandler } from "../../../utils/asyncHandler.js";
 import mongoose from "mongoose";
 import { RecruiterJob } from "../../../models/recruiter/jobPost/jobPost.model.js";
 import { City } from "../../../models/location/city.model.js";
+import { State } from "../../../models/location/state.model.js";
 import { Recruiter } from "../../../models/recruiter/recruiter.model.js";
 import { Specialization } from "../../../models/admin/specialization/specialization.model.js";
 import { CoinRule } from "../../../models/admin/coinPricing/coinPricing.model.js";
@@ -13,6 +14,7 @@ import { fcmService } from "../../../firebase/fcm.service.js";
 import Notification from "../../../firebase/notification.model.js";
 import { Category } from "../../../models/category/category.model.js";
 import { processReferralReward } from "../../../services/referral/referralService.js";
+import { Application } from "../../../models/jobSeeker/application.model.js";
 
 const normalizeArray = (value) => {
   if (!value) return [];
@@ -101,14 +103,19 @@ const buildCompanySnapshot = (recruiter, payload = {}) => {
 export const createRecruiterJob = asyncHandler(async (req, res) => {
   const recruiter = req.recruiter;
 
-  if (!recruiter?.phoneVerified) {
-    throw new ApiError(400, "Please complete recruiter verification first.");
-  }
+  // Temporarily disabled - allow job posting without verification
+  // if (!recruiter?.phoneVerified) {
+  //   throw new ApiError(400, "Please complete recruiter verification first.");
+  // }
 
   const {
     jobTitle,
     jobDescription,
     city,
+    cityId,
+    state,
+    stateId,
+    address,
     expectedSalaryMin,
     expectedSalaryMax,
     salaryCurrency = "INR",
@@ -130,6 +137,39 @@ export const createRecruiterJob = asyncHandler(async (req, res) => {
     responsibilities = [],
     aboutCompany = {},
   } = req.body;
+
+  // Resolve city name from cityId if provided
+  let resolvedCity = city;
+  if (cityId && !city) {
+    const cityDoc = await City.findById(cityId).lean();
+    if (cityDoc) {
+      resolvedCity = cityDoc.name;
+    }
+  }
+
+  // Debug: Log received state values
+  console.log("📍 createRecruiterJob - Received state:", state, "stateId:", stateId, "address:", address);
+
+  // Resolve state name from stateId if provided
+  // Also handle empty string case (Flutter may send state: "" with stateId)
+  let resolvedState = state && state.trim() ? state.trim() : null;
+  if (stateId && !resolvedState) {
+    const stateDoc = await State.findById(stateId).lean();
+    if (stateDoc) {
+      resolvedState = stateDoc.name;
+      console.log("📍 Resolved state from stateId:", resolvedState);
+    } else {
+      console.log("⚠️ stateId provided but state not found in DB:", stateId);
+    }
+  }
+
+  // Validate required fields: state and address
+  if (!resolvedState) {
+    throw new ApiError(400, "State is required. Provide either 'state' (name) or 'stateId' (ID).");
+  }
+  if (!address || !address.trim()) {
+    throw new ApiError(400, "Address is required.");
+  }
 
   // Look up jobSeekerCategory by ID
   if (!jobSeekerCategoryId) {
@@ -237,7 +277,9 @@ export const createRecruiterJob = asyncHandler(async (req, res) => {
     recruiter: recruiter._id,
     jobTitle,
     jobDescription,
-    city,
+    city: resolvedCity,
+    state: resolvedState,
+    address: address || null,
     expectedSalary: {
       min: expectedSalaryMin,
       max: expectedSalaryMax,
@@ -348,9 +390,15 @@ export const createRecruiterJob = asyncHandler(async (req, res) => {
     console.error("❌ Error checking referral reward:", refErr.message);
   }
 
+  // Build dynamic success message
+  let successMessage = "Job posted successfully";
+  if (totalCoinCost > 0 && balanceAfter !== null) {
+    successMessage = `Job posted successfully! ${totalCoinCost} coins deducted. Remaining balance: ${balanceAfter} coins.`;
+  }
+
   return res
     .status(201)
-    .json(ApiResponse.success(responsePayload, "Job posted successfully"));
+    .json(ApiResponse.success(responsePayload, successMessage));
 });
 
 /**
@@ -441,6 +489,28 @@ export const getAllJobPosts = asyncHandler(async (req, res) => {
   // If job seeker is authenticated, only show jobs matching their category
   if (req.jobSeeker && req.jobSeeker.category) {
     filter.jobSeekerCategory = req.jobSeeker.category;
+  }
+
+  // If job seeker is authenticated, exclude jobs they've already applied for
+  if (req.jobSeeker) {
+    console.log("🔍 Debug getAllJobPosts - Job Seeker authenticated:");
+    console.log("  - Job Seeker ID:", req.jobSeeker._id);
+
+    const appliedApplications = await Application.find(
+      { jobSeeker: req.jobSeeker._id },
+      { job: 1 }
+    ).lean();
+    const appliedJobIds = appliedApplications.map((app) => app.job);
+
+    console.log("  - Applied Applications Found:", appliedApplications.length);
+    console.log("  - Applied Job IDs:", appliedJobIds);
+
+    if (appliedJobIds.length > 0) {
+      filter._id = { $nin: appliedJobIds };
+      console.log("  - Filter applied: Excluding", appliedJobIds.length, "jobs");
+    }
+  } else {
+    console.log("🔍 Debug getAllJobPosts - No job seeker authenticated (req.jobSeeker is undefined)");
   }
 
   // Global search - searches across job title, description, city, company name, categories, tags, qualifications
@@ -778,6 +848,8 @@ export const getAllJobPosts = asyncHandler(async (req, res) => {
       jobTitle: job.jobTitle,
       jobDescription: job.jobDescription,
       city: job.city,
+      state: job.state || null,
+      address: job.address || null,
       expectedSalary: job.expectedSalary,
       salaryLabel,
       employeeCount: job.employeeCount,
@@ -902,6 +974,8 @@ export const getJobPostById = asyncHandler(async (req, res) => {
     jobTitle: job.jobTitle,
     jobDescription: job.jobDescription,
     city: job.city,
+    state: job.state || null,
+    address: job.address || null,
     expectedSalary: job.expectedSalary,
     salaryLabel,
     employeeCount: job.employeeCount,
@@ -1062,6 +1136,220 @@ export const deactivateJob = asyncHandler(async (req, res) => {
 });
 
 
+/**
+ * Update Job Post (Recruiter)
+ * Allows recruiter to edit job details without reposting
+ * Can edit all fields EXCEPT vacancyCount (use updateVacancyCount for that)
+ * Requires: Recruiter authentication (JWT token)
+ */
+export const updateJobPost = asyncHandler(async (req, res) => {
+  const recruiter = req.recruiter;
+  const { jobId } = req.params;
+
+  // Validate job ID
+  if (!mongoose.Types.ObjectId.isValid(jobId)) {
+    throw new ApiError(400, "Invalid job ID format");
+  }
+
+  // Find the job
+  const job = await RecruiterJob.findById(jobId);
+
+  if (!job) {
+    throw new ApiError(404, "Job not found");
+  }
+
+  // Verify the job belongs to this recruiter
+  if (job.recruiter.toString() !== recruiter._id.toString()) {
+    throw new ApiError(403, "You are not authorized to edit this job");
+  }
+
+  // Extract editable fields from request body (excluding vacancyCount)
+  const {
+    jobTitle,
+    jobDescription,
+    city,
+    cityId,
+    state,
+    stateId,
+    address,
+    expectedSalaryMin,
+    expectedSalaryMax,
+    salaryCurrency,
+    salaryPayPeriod,
+    employeeCount,
+    // vacancyCount excluded - use updateVacancyCount API
+    jobType,
+    employmentMode,
+    jobSeekerCategoryId,
+    categories,
+    tags,
+    skills,
+    benefits,
+    experienceMinYears,
+    experienceMaxYears,
+    preferredAgeMin,
+    preferredAgeMax,
+    qualifications,
+    responsibilities,
+    aboutCompany,
+  } = req.body;
+
+  // Resolve city name from cityId if provided
+  let resolvedCity = city;
+  if (cityId && !city) {
+    const cityDoc = await City.findById(cityId).lean();
+    if (cityDoc) {
+      resolvedCity = cityDoc.name;
+    }
+  }
+
+  // Resolve state name from stateId if provided
+  let resolvedState = state;
+  if (stateId && !state) {
+    const stateDoc = await State.findById(stateId).lean();
+    if (stateDoc) {
+      resolvedState = stateDoc.name;
+    }
+  }
+
+  if (jobTitle !== undefined) {
+    job.jobTitle = jobTitle;
+  }
+  if (jobDescription !== undefined) {
+    job.jobDescription = jobDescription;
+  }
+  if (resolvedCity !== undefined) {
+    job.city = resolvedCity;
+  }
+  if (resolvedState !== undefined) {
+    job.state = resolvedState;
+  }
+  if (address !== undefined) {
+    job.address = address;
+  }
+
+  // Update salary if any salary field is provided
+  if (expectedSalaryMin !== undefined || expectedSalaryMax !== undefined || salaryCurrency !== undefined || salaryPayPeriod !== undefined) {
+    job.expectedSalary = {
+      min: expectedSalaryMin !== undefined ? expectedSalaryMin : job.expectedSalary?.min,
+      max: expectedSalaryMax !== undefined ? expectedSalaryMax : job.expectedSalary?.max,
+      currency: salaryCurrency !== undefined ? salaryCurrency : (job.expectedSalary?.currency || "INR"),
+      payPeriod: salaryPayPeriod !== undefined ? salaryPayPeriod : (job.expectedSalary?.payPeriod || "monthly"),
+    };
+  }
+
+  if (employeeCount !== undefined) {
+    job.employeeCount = employeeCount;
+  }
+  if (jobType !== undefined) {
+    job.jobType = jobType;
+  }
+  if (employmentMode !== undefined) {
+    job.employmentMode = employmentMode;
+  }
+
+  // Update jobSeekerCategory if categoryId is provided
+  if (jobSeekerCategoryId !== undefined) {
+    const category = await Category.findById(jobSeekerCategoryId).lean();
+    if (!category) {
+      throw new ApiError(404, "Job Seeker Category not found");
+    }
+    const validCategories = ["Non-Degree Holder", "Diploma Holder", "ITI Holder"];
+    if (!validCategories.includes(category.name)) {
+      throw new ApiError(400, `Invalid job seeker category. Must be one of: ${validCategories.join(", ")}`);
+    }
+    job.jobSeekerCategory = category.name;
+  }
+
+  if (categories !== undefined) {
+    job.categories = normalizeArray(categories);
+  }
+  if (tags !== undefined) {
+    job.tags = normalizeArray(tags);
+  }
+  if (skills !== undefined) {
+    job.skills = normalizeArray(skills);
+  }
+  if (benefits !== undefined) {
+    job.benefits = benefits;
+  }
+
+  // Update experience range if provided
+  if (experienceMinYears !== undefined || experienceMaxYears !== undefined) {
+    job.experienceRange = {
+      minYears: experienceMinYears !== undefined ? experienceMinYears : job.experienceRange?.minYears,
+      maxYears: experienceMaxYears !== undefined ? experienceMaxYears : job.experienceRange?.maxYears,
+    };
+  }
+
+  // Update preferred age range if provided
+  if (preferredAgeMin !== undefined || preferredAgeMax !== undefined) {
+    job.preferredAgeRange = {
+      minAge: preferredAgeMin !== undefined ? preferredAgeMin : job.preferredAgeRange?.minAge,
+      maxAge: preferredAgeMax !== undefined ? preferredAgeMax : job.preferredAgeRange?.maxAge,
+    };
+  }
+
+  if (qualifications !== undefined) {
+    job.qualifications = normalizeArray(qualifications);
+  }
+  if (responsibilities !== undefined) {
+    job.responsibilities = normalizeArray(responsibilities);
+  }
+  if (aboutCompany !== undefined) {
+    job.companySnapshot = aboutCompany;
+  }
+
+  // Save the updated job
+  await job.save();
+
+  // Format salary label
+  const salaryLabel = `₹${Math.round(job.expectedSalary.min).toLocaleString("en-IN")} - ₹${Math.round(
+    job.expectedSalary.max
+  ).toLocaleString("en-IN")}/${job.expectedSalary.payPeriod === "monthly" ? "month" : "year"}`;
+
+  // Format experience label
+  const experienceLabel = job.experienceRange.maxYears
+    ? `${job.experienceRange.minYears}-${job.experienceRange.maxYears} YoE`
+    : `${job.experienceRange.minYears}+ YoE`;
+
+  return res.status(200).json(
+    ApiResponse.success(
+      {
+        job: {
+          _id: job._id,
+          jobTitle: job.jobTitle,
+          jobDescription: job.jobDescription,
+          city: job.city,
+          state: job.state || null,
+          address: job.address || null,
+          expectedSalary: job.expectedSalary,
+          salaryLabel,
+          employeeCount: job.employeeCount,
+          vacancyCount: job.vacancyCount,
+          jobType: job.jobType,
+          employmentMode: job.employmentMode,
+          jobSeekerCategory: job.jobSeekerCategory,
+          categories: job.categories,
+          tags: job.tags,
+          skills: job.skills,
+          benefits: job.benefits,
+          experienceRange: job.experienceRange,
+          experienceLabel,
+          preferredAgeRange: job.preferredAgeRange,
+          qualifications: job.qualifications,
+          responsibilities: job.responsibilities,
+          companySnapshot: job.companySnapshot,
+          status: job.status,
+          applicationCount: job.applicationCount,
+          createdAt: job.createdAt,
+          updatedAt: job.updatedAt,
+        },
+      },
+      "Job updated successfully"
+    )
+  );
+});
 
 
 /* Repost Job By Recruiter */
@@ -1075,11 +1363,14 @@ export const repostJob = asyncHandler(async (req, res) => {
   const recruiter = req.recruiter;
   const { jobId } = req.params;
 
-  // Editable fields from request body
   const {
     jobTitle,
     jobDescription,
     city,
+    cityId,
+    state,
+    stateId,
+    address,
     expectedSalaryMin,
     expectedSalaryMax,
     salaryCurrency,
@@ -1101,6 +1392,24 @@ export const repostJob = asyncHandler(async (req, res) => {
     responsibilities,
     aboutCompany,
   } = req.body;
+
+  // Resolve city name from cityId if provided
+  let resolvedCity = city;
+  if (cityId && !city) {
+    const cityDoc = await City.findById(cityId).lean();
+    if (cityDoc) {
+      resolvedCity = cityDoc.name;
+    }
+  }
+
+  // Resolve state name from stateId if provided
+  let resolvedState = state;
+  if (stateId && !state) {
+    const stateDoc = await State.findById(stateId).lean();
+    if (stateDoc) {
+      resolvedState = stateDoc.name;
+    }
+  }
 
   if (!mongoose.Types.ObjectId.isValid(jobId)) {
     throw new ApiError(400, "Invalid job ID format");
@@ -1180,7 +1489,9 @@ export const repostJob = asyncHandler(async (req, res) => {
     // Use new values if provided, otherwise use old values
     jobTitle: jobTitle || oldJob.jobTitle,
     jobDescription: jobDescription || oldJob.jobDescription,
-    city: city || oldJob.city,
+    city: resolvedCity || oldJob.city,
+    state: resolvedState || oldJob.state || null,
+    address: address !== undefined ? address : (oldJob.address || null),
     expectedSalary: {
       min: expectedSalaryMin || oldJob.expectedSalary?.min,
       max: expectedSalaryMax || oldJob.expectedSalary?.max,
@@ -1250,6 +1561,12 @@ export const repostJob = asyncHandler(async (req, res) => {
     notifyMatchingJobSeekers(newJob._id, jobSkills, newJob.jobTitle);
   }
 
+  // Build dynamic success message
+  let successMessage = "Job reposted successfully";
+  if (totalCoinCost > 0 && balanceAfter !== null) {
+    successMessage = `Job reposted successfully! ${totalCoinCost} coins deducted. Remaining balance: ${balanceAfter} coins.`;
+  }
+
   return res.status(201).json(
     ApiResponse.success(
       {
@@ -1268,7 +1585,7 @@ export const repostJob = asyncHandler(async (req, res) => {
           }
           : null,
       },
-      "Job reposted successfully"
+      successMessage
     )
   );
 });
@@ -1390,6 +1707,8 @@ export const getRecruiterJobs = asyncHandler(async (req, res) => {
       jobTitle: job.jobTitle,
       jobDescription: job.jobDescription,
       city: job.city,
+      state: job.state || null,
+      address: job.address || null,
       expectedSalary: job.expectedSalary,
       salaryLabel,
       employeeCount: job.employeeCount,

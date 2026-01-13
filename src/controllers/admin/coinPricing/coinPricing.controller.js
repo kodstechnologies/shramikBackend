@@ -25,6 +25,7 @@ const mapRule = (rule) => ({
   referralSettings: {
     isEnabled: rule?.referralSettings?.isEnabled ?? true,
     referrerCoins: rule?.referralSettings?.referrerCoins ?? 50,
+    refereeRewardEnabled: rule?.referralSettings?.refereeRewardEnabled ?? true,
     refereeCoins: rule?.referralSettings?.refereeCoins ?? 20,
     maxReferralsPerUser: rule?.referralSettings?.maxReferralsPerUser ?? 0,
   },
@@ -185,6 +186,9 @@ export const updateCoinRules = asyncHandler(async (req, res) => {
     }
     if (referralSettings.referrerCoins !== undefined) {
       rule.referralSettings.referrerCoins = referralSettings.referrerCoins;
+    }
+    if (referralSettings.refereeRewardEnabled !== undefined) {
+      rule.referralSettings.refereeRewardEnabled = referralSettings.refereeRewardEnabled;
     }
     if (referralSettings.refereeCoins !== undefined) {
       rule.referralSettings.refereeCoins = referralSettings.refereeCoins;

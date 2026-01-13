@@ -55,6 +55,10 @@ const recruiterSchema = new Schema(
       type: String,
       trim: true,
     },
+    address: {
+      type: String,
+      trim: true,
+    },
 
     // Documents
     profilePhoto: {

@@ -23,6 +23,7 @@ import jobSeekerPaymentRoutes from "./jobSeeker/payment.routes.js";
 import recruiterPaymentRoutes from "./recruiter/payment.routes.js";
 
 import feedbackRoutes from "./feedback/feedback.routes.js";
+import commonRoutes from "./common/common.routes.js";
 
 const router = Router();
 
@@ -50,6 +51,9 @@ router.use("/api/admin/dashboard", adminDashboardRoutes);
 router.use("/api/admin/job-seekers", adminJobSeekerRoutes);
 // Admin recruiter performance routes
 router.use("/api/admin/recruiters", adminRecruiterRoutes);
+// Admin coin transactions routes
+import adminTransactionRoutes from "./admin/transaction/transaction.routes.js";
+router.use("/api/admin/transactions", adminTransactionRoutes);
 // Admin email marketing routes
 router.use("/api/admin/email", adminEmailRoutes);
 router.use("/api/job-seekers", jobSeekerRoutes);
@@ -67,6 +71,9 @@ router.use("/api/recruiters/payment", recruiterPaymentRoutes);
 
 // Feedback routes (JobSeeker + Admin)
 router.use("/api/feedback", feedbackRoutes);
+
+// Common routes (Unified APIs for both user types)
+router.use("/api/common", commonRoutes);
 
 
 

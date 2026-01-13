@@ -42,6 +42,7 @@ export const coinRuleSchema = Joi.object({
   referralSettings: Joi.object({
     isEnabled: Joi.boolean().optional(),
     referrerCoins: Joi.number().min(0).optional(),
+    refereeRewardEnabled: Joi.boolean().optional(),
     refereeCoins: Joi.number().min(0).optional(),
     maxReferralsPerUser: Joi.number().min(0).optional(),
   }).optional(),
