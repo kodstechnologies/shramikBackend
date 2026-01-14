@@ -1311,6 +1311,8 @@ export const getJobSeekerProfile = asyncHandler(async (req, res) => {
   console.log("   - registrationStep:", profile.registrationStep);
   console.log("   - status:", profile.status);
   console.log("   - education:", profile.education);
+  console.log("   - experienceStatus:", profile.experienceStatus);
+  console.log("   - yearOfExperience:", profile.yearOfExperience);
   console.log("=================================================");
 
   // Format response
@@ -1406,6 +1408,8 @@ export const updateJobSeekerProfile = asyncHandler(async (req, res) => {
     selectedSkills,
     aboutMe,
     address,
+    yearOfExperience,
+    experienceStatus
   } = req.body;
 
   // Find the job seeker
@@ -1457,6 +1461,26 @@ export const updateJobSeekerProfile = asyncHandler(async (req, res) => {
   if (address !== undefined) {
     profile.address = address?.trim() || null;
   }
+
+  // Update Year of Experience
+  console.log("========== updateJobSeekerProfile DEBUG ==========");
+  console.log("📥 yearOfExperience received:", yearOfExperience);
+  console.log("📥 typeof yearOfExperience:", typeof yearOfExperience);
+  console.log("📥 experienceStatus received:", experienceStatus);
+  console.log("📥 typeof experienceStatus:", typeof experienceStatus);
+  if (yearOfExperience !== undefined) {
+    profile.yearOfExperience = yearOfExperience?.trim ? yearOfExperience.trim() : String(yearOfExperience);
+    console.log("✅ yearOfExperience set to:", profile.yearOfExperience);
+  } else {
+    console.log("⚠️ yearOfExperience is undefined, not updating");
+  }
+  if (experienceStatus !== undefined) {
+    profile.experienceStatus = experienceStatus;
+    console.log("✅ experienceStatus set to:", profile.experienceStatus);
+  } else {
+    console.log("⚠️ experienceStatus is undefined, not updating");
+  }
+  console.log("===================================================");
 
   // Update specialization and skills
   if (specializationId !== undefined) {
@@ -1552,6 +1576,7 @@ export const updateJobSeekerProfile = asyncHandler(async (req, res) => {
     documents: profile.documents || [],
     education: profile.education || null,
     experienceStatus: profile.experienceStatus,
+    yearOfExperience: profile.yearOfExperience || "",
     aboutMe: profile.aboutMe || null,
     registrationStep: profile.registrationStep,
     isRegistrationComplete: profile.isRegistrationComplete,

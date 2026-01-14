@@ -357,7 +357,7 @@ export const getMyReferralCode = asyncHandler(async (req, res) => {
 export const getReferralStats = asyncHandler(async (req, res) => {
   const jobSeeker = await JobSeeker.findById(req.jobSeeker._id);
 
-  // Get all referrals made by this user
+  // Get all referrals made by this user (as referrer)
   const referrals = await Referral.find({
     referrer: jobSeeker._id,
     referrerType: "JobSeeker",
@@ -366,10 +366,24 @@ export const getReferralStats = asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 })
     .lean();
 
-  // Calculate stats
+  // Get referral where this user was the referee (signed up with someone's code)
+  const myReferral = await Referral.findOne({
+    referee: jobSeeker._id,
+    refereeType: "JobSeeker",
+  })
+    .populate("referrer", "name phone")
+    .lean();
+
+  // Calculate stats for referrals made by this user
   const totalReferrals = referrals.length;
   const rewardedReferrals = referrals.filter((r) => r.status === "rewarded").length;
-  const totalCoinsEarned = referrals.reduce((sum, r) => sum + (r.referrerCoinsAwarded || 0), 0);
+  const coinsFromReferrals = referrals.reduce((sum, r) => sum + (r.referrerCoinsAwarded || 0), 0);
+
+  // Get coins earned as a referee (when user signed up with someone's referral code)
+  const refereeCoinsEarned = myReferral?.refereeCoinsAwarded || 0;
+
+  // Total coins earned = coins from referring others + coins received as a referee
+  const totalCoinsEarned = coinsFromReferrals + refereeCoinsEarned;
 
   // Get referral settings
   const coinRule = await CoinRule.findOne({ category: "jobSeeker" });
@@ -393,6 +407,13 @@ export const getReferralStats = asyncHandler(async (req, res) => {
           status: r.status,
           createdAt: r.createdAt,
         })),
+        // New fields for referee coins (coins earned when signing up with a referral code)
+        refereeCoinsEarned,
+        referredBy: myReferral ? {
+          phone: myReferral.referrer?.phone || "Unknown",
+          status: myReferral.status,
+          coinsReceived: myReferral.refereeCoinsAwarded || 0,
+        } : null,
       },
       "Referral stats retrieved successfully"
     )

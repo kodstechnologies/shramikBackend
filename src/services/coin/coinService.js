@@ -151,6 +151,19 @@ export const addCoins = async (
   razorpaySignature = null,
   status = "success"
 ) => {
+  // Debug logging for referral tracking
+  console.log("💰 ═══════════════════════════════════════════════════");
+  console.log("💰 addCoins CALLED");
+  console.log("💰 ═══════════════════════════════════════════════════");
+  console.log("💰 User ID:", userId);
+  console.log("💰 User Type:", userType);
+  console.log("💰 Amount:", amount);
+  console.log("💰 Transaction Type:", transactionType);
+  console.log("💰 Description:", description);
+  console.log("💰 Price:", price);
+  console.log("💰 Razorpay Order ID:", razorpayOrderId || "(none - not a Razorpay purchase)");
+  console.log("💰 ═══════════════════════════════════════════════════");
+
   if (amount <= 0) {
     throw new ApiError(400, "Amount must be greater than 0");
   }
@@ -172,32 +185,56 @@ export const addCoins = async (
     const currentBalance = user.coinBalance || 0;
     const newBalance = currentBalance + amount;
 
+    console.log("💰 Current Balance:", currentBalance);
+    console.log("💰 New Balance (after adding):", newBalance);
+
     // Update user balance
     user.coinBalance = newBalance;
     await user.save({ session });
 
-    // Create transaction record
+    // Create transaction record - only include razorpay fields if they have values
+    // (sparse index requires field to be missing, not null, to allow multiple nulls)
+    const transactionData = {
+      userId,
+      userType,
+      userTypeModel,
+      transactionType,
+      amount, // Positive for purchase/refund
+      price,
+      status,
+      description,
+      balanceAfter: newBalance,
+    };
+
+    // Only add razorpay fields if they have values (sparse index requirement)
+    if (razorpayOrderId) {
+      transactionData.razorpayOrderId = razorpayOrderId;
+    }
+    if (razorpayPaymentId) {
+      transactionData.razorpayPaymentId = razorpayPaymentId;
+    }
+    if (razorpaySignature) {
+      transactionData.razorpaySignature = razorpaySignature;
+    }
+
     const transaction = await CoinTransaction.create(
-      [
-        {
-          userId,
-          userType,
-          userTypeModel,
-          transactionType,
-          amount, // Positive for purchase/refund
-          price,
-          razorpayOrderId,
-          razorpayPaymentId,
-          razorpaySignature,
-          status,
-          description,
-          balanceAfter: newBalance,
-        },
-      ],
+      [transactionData],
       { session }
     );
 
     await session.commitTransaction();
+
+    // Success log
+    console.log("💰 ═══════════════════════════════════════════════════");
+    console.log("💰 addCoins SUCCESS!");
+    console.log("💰 Transaction ID:", transaction[0]._id);
+    console.log("💰 Coins Added:", amount);
+    console.log("💰 Balance Before:", currentBalance);
+    console.log("💰 Balance After:", newBalance);
+    if (transactionType === "referral") {
+      console.log("🎁 REFERRAL REWARD APPLIED SUCCESSFULLY!");
+    }
+    console.log("💰 ═══════════════════════════════════════════════════");
 
     return {
       success: true,

@@ -195,16 +195,28 @@ export const applyForJob = asyncHandler(async (req, res) => {
       status: { $ne: "Withdrawn" }
     });
 
+    console.log("🎁 ═══════════════════════════════════════════════════");
+    console.log("🎁 REFERRAL CHECK IN applyForJob");
+    console.log("🎁 Job Seeker ID:", jobSeeker._id);
+    console.log("🎁 Application Count (excluding withdrawn):", applicationCount);
+    console.log("🎁 Is First Application:", applicationCount === 1);
+
     if (applicationCount === 1) {
       // This is the first application - process referral reward
+      console.log("🎁 Calling processReferralReward...");
       referralRewardInfo = await processReferralReward(
         jobSeeker._id,
         "JobSeeker",
         "job_application"
       );
+      console.log("🎁 processReferralReward result:", referralRewardInfo);
+    } else {
+      console.log("🎁 Not first application, skipping referral reward");
     }
+    console.log("🎁 ═══════════════════════════════════════════════════");
   } catch (refErr) {
     console.error("❌ Error processing referral reward:", refErr.message);
+    console.error("❌ Stack:", refErr.stack);
   }
 
   // Populate job and job seeker details for response

@@ -40,7 +40,11 @@ export const processReferralReward = async (userId, userType, actionType) => {
 
         // Get referral settings based on referee type
         const category = userType === "Recruiter" ? "recruiter" : "jobSeeker";
+        console.log("🎁 Looking for CoinRule with category:", category);
         const coinRule = await CoinRule.findOne({ category });
+        console.log("🎁 CoinRule found:", coinRule ? "YES" : "NO");
+        console.log("🎁 CoinRule referralSettings:", JSON.stringify(coinRule?.referralSettings, null, 2));
+
         const referralSettings = coinRule?.referralSettings || {};
         const isReferralEnabled = referralSettings.isEnabled !== false;
         const referrerCoins = referralSettings.referrerCoins || 50;
@@ -48,6 +52,11 @@ export const processReferralReward = async (userId, userType, actionType) => {
         const refereeRewardEnabled = referralSettings.refereeRewardEnabled !== false;
         const refereeCoins = referralSettings.refereeCoins ?? Math.floor(referrerCoins / 2);
         const maxReferrals = referralSettings.maxReferralsPerUser || 0;
+
+        console.log("🎁 isReferralEnabled:", isReferralEnabled);
+        console.log("🎁 referrerCoins:", referrerCoins);
+        console.log("🎁 refereeRewardEnabled:", refereeRewardEnabled);
+        console.log("🎁 refereeCoins:", refereeCoins);
 
         if (!isReferralEnabled) {
             console.log("🎁 ⚠️ Referral system is disabled");

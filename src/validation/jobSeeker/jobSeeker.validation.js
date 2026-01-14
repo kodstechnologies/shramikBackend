@@ -349,6 +349,8 @@ export const updateJobSeekerProfileSchema = Joi.object({
   aboutMe: Joi.string().trim().max(2000).optional().allow("").messages({
     "string.max": "About me section must not exceed 2000 characters",
   }),
+  yearOfExperience: Joi.alternatives().try(Joi.string(), Joi.number()).optional().allow(""),
+  experienceStatus: Joi.boolean().optional(),
   // Note: Documents (profilePhoto, resume, etc.) are handled via file upload middleware
 });
 
