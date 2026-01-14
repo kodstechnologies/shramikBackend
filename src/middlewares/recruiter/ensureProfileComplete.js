@@ -11,11 +11,10 @@ import { Recruiter } from "../../models/recruiter/recruiter.model.js";
  * - email
  * - state
  * - city
- * - website
  * - businessType
  * - establishedFrom
  *
- * aboutMe and documents are NOT required.
+ * website, aboutMe and documents are NOT required.
  */
 export const ensureRecruiterProfileComplete = asyncHandler(async (req, res, next) => {
   const recruiterFromAuth = req.recruiter;
@@ -41,8 +40,7 @@ export const ensureRecruiterProfileComplete = asyncHandler(async (req, res, next
   if (isEmpty(recruiter.email)) missingFields.push("email");
   if (isEmpty(recruiter.state)) missingFields.push("state");
   if (isEmpty(recruiter.city)) missingFields.push("city");
-  if (isEmpty(recruiter.website)) missingFields.push("website");
-  if (isEmpty(recruiter.businessType)) missingFields.push("businessType");
+  // if (isEmpty(recruiter.businessType)) missingFields.push("businessType");
   if (
     recruiter.establishedFrom === undefined ||
     recruiter.establishedFrom === null ||

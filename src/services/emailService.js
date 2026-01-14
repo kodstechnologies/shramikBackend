@@ -205,7 +205,7 @@ class EmailService {
         <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
           <!-- Header -->
           <div style="text-align: center; margin-bottom: 30px;">
-            <img src="${process.env.EMAIL_LOGO_URL || (process.env.API_URL && !process.env.API_URL.includes('localhost') ? process.env.API_URL + '/ShramikLogo.jpeg' : 'https://placehold.co/200x50/2563eb/ffffff?text=Shramik')}" alt="Shramik" style="height: 50px;">
+            <img src="${process.env.EMAIL_LOGO_URL && !process.env.EMAIL_LOGO_URL.includes('localhost') && !process.env.EMAIL_LOGO_URL.includes('127.0.0.1') ? process.env.EMAIL_LOGO_URL : (process.env.API_URL && !process.env.API_URL.includes('localhost') && !process.env.API_URL.includes('127.0.0.1') ? process.env.API_URL + '/ShramikLogo.jpeg' : 'https://placehold.co/200x50/2563eb/ffffff?text=Shramik')}" alt="Shramik" style="height: 50px;">
           </div>
           
           <!-- Main Card -->

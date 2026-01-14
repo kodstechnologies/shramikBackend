@@ -310,27 +310,32 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
 
     // 1. User Metrics (JobSeekers)
     // - New Users: Created in range
-    // - Active Users (proxy): Created in range AND status is Active
-    // - Inactive Users (proxy): Created in range AND status != Active
+    // - Active Users (proxy): Created in range AND status is Active AND not blocked
+    // - Inactive Users (proxy): Created in range AND (status != Active OR isBlocked = true)
     const [newUsers, activeUsersCreated, inactiveUsersCreated] = await Promise.all([
         getDailyCounts(JobSeeker, {}),
-        getDailyCounts(JobSeeker, { status: "Active" }),
-        getDailyCounts(JobSeeker, { status: { $ne: "Active" } })
+        getDailyCounts(JobSeeker, { status: "Active", isBlocked: { $ne: true } }),
+        getDailyCounts(JobSeeker, { $or: [{ status: { $ne: "Active" } }, { isBlocked: true }] })
     ]);
 
     // 2. Job Metrics
     // - Posts: Created in range
-    // - Applications: Created in range
-    const [jobPosts, jobApplications] = await Promise.all([
+    // - Applications: All applications created in range
+    // - Shortlisted (Selected): Applications with status 'Shortlisted'
+    // - Rejected: Applications with status 'Rejected'
+    const [jobPosts, jobApplications, shortlistedApps, rejectedApps] = await Promise.all([
         getDailyCounts(RecruiterJob, {}),
-        getDailyCounts(Application, {})
+        getDailyCounts(Application, {}),
+        getDailyCounts(Application, { status: "Shortlisted" }),
+        getDailyCounts(Application, { status: "Rejected" })
     ]);
 
-    // 3. Coin Metrics
-    const [coinPurchases, coinSpends, coinRewards] = await Promise.all([
+    // 3. Coin Metrics (transactionTypes: purchase, deduction, refund, referral)
+    const [coinPurchases, coinDeductions, coinRefunds, coinReferrals] = await Promise.all([
         getDailyCounts(CoinTransaction, { transactionType: "purchase" }),
-        getDailyCounts(CoinTransaction, { transactionType: "spend" }),
-        getDailyCounts(CoinTransaction, { transactionType: "reward" })
+        getDailyCounts(CoinTransaction, { transactionType: "deduction" }),
+        getDailyCounts(CoinTransaction, { transactionType: "refund" }),
+        getDailyCounts(CoinTransaction, { transactionType: "referral" })
     ]);
 
     // Generate full date range keys
@@ -366,12 +371,15 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
             },
             jobs: {
                 posted: fillDates(jobPosts),
-                applied: fillDates(jobApplications)
+                applied: fillDates(jobApplications),
+                selected: fillDates(shortlistedApps),
+                rejected: fillDates(rejectedApps)
             },
             coins: {
                 purchase: fillDates(coinPurchases),
-                spend: fillDates(coinSpends),
-                reward: fillDates(coinRewards)
+                deduction: fillDates(coinDeductions),
+                refund: fillDates(coinRefunds),
+                referral: fillDates(coinReferrals)
             }
         }, "Dashboard analytics fetched successfully")
     );
