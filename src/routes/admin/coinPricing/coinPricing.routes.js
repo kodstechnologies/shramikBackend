@@ -3,6 +3,7 @@ import {
   createCoinPackage,
   deleteCoinPackage,
   getCoinPricing,
+  getPackagePopularity,
   updateCoinPackage,
   updateCoinRules,
 } from "../../../controllers/admin/coinPricing/coinPricing.controller.js";
@@ -51,6 +52,12 @@ router.put(
   validateRequest(categoryParamSchema, "params"),
   validateRequest(coinRuleSchema),
   updateCoinRules
+);
+
+router.get(
+  "/:category/popularity",
+  validateRequest(categoryParamSchema, "params"),
+  getPackagePopularity
 );
 
 export default router;

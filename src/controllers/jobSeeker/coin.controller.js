@@ -76,17 +76,19 @@ export const getCoinPackages = asyncHandler(async (req, res) => {
     .lean();
 
   // Helper to get popular package name
-  const getPopularPackageName = async (category) => {
-    // Defines standard description prefix used in purchases
-    const descriptionPrefix = "Coin Purchase: ";
-
-    // Aggregate purchases to find most common description
+  const getPopularPackageName = async () => {
+    // Match both formats:
+    // - "Coin Purchase: gold" (mock purchases)
+    // - "Purchased gold (100 coins)" (real payments)
     const popularStats = await CoinTransaction.aggregate([
       {
         $match: {
           transactionType: "purchase",
           status: "success",
-          description: { $regex: `^${descriptionPrefix}` }
+          $or: [
+            { description: { $regex: "^Coin Purchase: " } },
+            { description: { $regex: "^Purchased " } }
+          ]
         }
       },
       { $group: { _id: "$description", count: { $sum: 1 } } },
@@ -94,10 +96,23 @@ export const getCoinPackages = asyncHandler(async (req, res) => {
       { $limit: 1 }
     ]);
 
+    console.log("📊 Popular package stats:", popularStats);
+
     if (popularStats.length > 0) {
-      // Extract package name from description "Coin Purchase: PackageName"
-      return popularStats[0]._id.replace(descriptionPrefix, "");
+      const description = popularStats[0]._id;
+      // Extract package name from either format
+      // "Coin Purchase: gold" -> "gold"
+      // "Purchased gold (100 coins)" -> "gold"
+      let packageName = description
+        .replace(/^Coin Purchase: /, "")
+        .replace(/^Purchased /, "")
+        .replace(/ \(\d+ coins\)$/, "")
+        .trim();
+
+      console.log("📊 Most popular package:", packageName, "| Count:", popularStats[0].count);
+      return packageName;
     }
+    console.log("📊 No purchase transactions found for popular package");
     return null;
   };
 
@@ -115,16 +130,14 @@ export const getCoinPackages = asyncHandler(async (req, res) => {
 
   const [formattedPackages, popularPackageName] = await Promise.all([
     formattedPackagesPromise,
-    getPopularPackageName("jobSeeker") // Pass category if needed for future refinement
+    getPopularPackageName()
   ]);
 
-  // If no transactions yet, default to the one with 'Popular' in name or the middle one
-  // For now, we only tag if we have data or if the package name matches
-
+  // Compare case-insensitively
   const finalPackages = formattedPackages.map(pkg => ({
     ...pkg,
-    isPopular: popularPackageName ? pkg.name === popularPackageName : false,
-    tag: (popularPackageName && pkg.name === popularPackageName)
+    isPopular: popularPackageName ? pkg.name.toLowerCase() === popularPackageName.toLowerCase() : false,
+    tag: (popularPackageName && pkg.name.toLowerCase() === popularPackageName.toLowerCase())
       ? "Most bought by users"
       : null
   }));
@@ -376,7 +389,8 @@ export const getReferralStats = asyncHandler(async (req, res) => {
 
   // Calculate stats for referrals made by this user
   const totalReferrals = referrals.length;
-  const rewardedReferrals = referrals.filter((r) => r.status === "rewarded").length;
+  // Count referrals that actually awarded coins (rewarded or deleted with coins)
+  const rewardedReferrals = referrals.filter((r) => (r.referrerCoinsAwarded || 0) > 0).length;
   const coinsFromReferrals = referrals.reduce((sum, r) => sum + (r.referrerCoinsAwarded || 0), 0);
 
   // Get coins earned as a referee (when user signed up with someone's referral code)

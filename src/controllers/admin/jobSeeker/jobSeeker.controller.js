@@ -351,6 +351,19 @@ export const getAllJobSeekers = asyncHandler(async (req, res) => {
         .limit(limit)
         .lean();
 
+    // Get application counts for each job seeker
+    const jobSeekerIds = jobSeekers.map(js => js._id);
+    const applicationCounts = await Application.aggregate([
+        { $match: { jobSeeker: { $in: jobSeekerIds } } },
+        { $group: { _id: "$jobSeeker", totalApplications: { $sum: 1 } } }
+    ]);
+
+    // Create a map of job seeker ID to application count
+    const applicationCountMap = {};
+    applicationCounts.forEach(item => {
+        applicationCountMap[item._id.toString()] = item.totalApplications;
+    });
+
     // Format response
     const formattedJobSeekers = jobSeekers.map(js => ({
         _id: js._id,
@@ -364,6 +377,7 @@ export const getAllJobSeekers = asyncHandler(async (req, res) => {
         isBlocked: js.isBlocked || false,
         profilePhoto: js.profilePhoto,
         coinBalance: js.coinBalance || 0,
+        totalApplications: applicationCountMap[js._id.toString()] || 0,
         createdAt: js.createdAt,
         updatedAt: js.updatedAt,
     }));

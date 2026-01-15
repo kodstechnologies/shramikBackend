@@ -45,11 +45,17 @@ export const getAllFeedback = asyncHandler(async (req, res) => {
                     { $sort: { createdAt: -1 } },
                     { $skip: skip },
                     { $limit: parseInt(limit) },
+                    // Ensure ID is ObjectId for lookup
+                    {
+                        $addFields: {
+                            jobSeekerObjId: { $toObjectId: "$jobSeeker" }
+                        }
+                    },
                     // Lookup job seeker
                     {
                         $lookup: {
                             from: "jobseekers",
-                            localField: "jobSeeker",
+                            localField: "jobSeekerObjId",
                             foreignField: "_id",
                             as: "jobSeekerDetails"
                         }

@@ -69,24 +69,22 @@ function normalizeSkills(input) {
 export const sendOTP = asyncHandler(async (req, res) => {
   const { phone, category } = req.body;
 
-  // Cross-table validation: Check if phone exists in Recruiter table
+  // Check if phone exists in Recruiter or JobSeeker table
   const existingRecruiter = await Recruiter.findOne({ phone });
-  if (existingRecruiter) {
-    throw new ApiError(400, "Invalid number");
-  }
-
-  // Check if job seeker already exists
   const existingJobSeeker = await JobSeeker.findOne({ phone });
 
-  // Determine purpose: "login" if user exists, "registration" if new user
-  const purpose = existingJobSeeker ? "login" : "registration";
+  console.log("📱 sendOTP Debug:");
+  console.log("   - phone:", phone);
+  console.log("   - existingRecruiter:", existingRecruiter ? "YES" : "NO");
+  console.log("   - existingJobSeeker:", existingJobSeeker ? "YES" : "NO");
 
-  // For registration, category is optional (can be sent in verify-otp)
-  // For login, category is not needed
-  if (existingJobSeeker && category) {
-    // User exists but category provided - might be trying to change category
-    // This is allowed, will be handled in verify-otp
+  if (existingRecruiter || existingJobSeeker) {
+    console.log("   ❌ BLOCKING - This number is already registered!");
+    throw new ApiError(400, "This number is already registered");
   }
+
+  // For new registration, purpose is always "registration"
+  const purpose = "registration";
 
   // Generate and store OTP
   const otp = await storeOTP(phone, purpose);

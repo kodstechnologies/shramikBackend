@@ -372,6 +372,19 @@ export const getAllRecruiters = asyncHandler(async (req, res) => {
         .limit(limit)
         .lean();
 
+    // Get job counts for each recruiter
+    const recruiterIds = recruiters.map(r => r._id);
+    const jobCounts = await RecruiterJob.aggregate([
+        { $match: { recruiter: { $in: recruiterIds } } },
+        { $group: { _id: "$recruiter", totalJobs: { $sum: 1 } } }
+    ]);
+
+    // Create a map of recruiter ID to job count
+    const jobCountMap = {};
+    jobCounts.forEach(item => {
+        jobCountMap[item._id.toString()] = item.totalJobs;
+    });
+
     // Format response
     const formattedRecruiters = recruiters.map(r => ({
         _id: r._id,
@@ -384,6 +397,7 @@ export const getAllRecruiters = asyncHandler(async (req, res) => {
         isBlocked: r.isBlocked || false,
         companyLogo: r.companyLogo,
         coinBalance: r.coinBalance || 0,
+        totalJobs: jobCountMap[r._id.toString()] || 0,
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
     }));

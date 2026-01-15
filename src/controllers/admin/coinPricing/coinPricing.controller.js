@@ -1,4 +1,5 @@
 import { CoinPackage, CoinRule } from "../../../models/admin/coinPricing/coinPricing.model.js";
+import { CoinTransaction } from "../../../models/coin/coinTransaction.model.js";
 import ApiError from "../../../utils/ApiError.js";
 import ApiResponse from "../../../utils/ApiResponse.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
@@ -206,4 +207,106 @@ export const updateCoinRules = asyncHandler(async (req, res) => {
   res
     .status(200)
     .json(ApiResponse.success({ rules: mapRule(rule) }, "Coin rules updated successfully"));
+});
+
+/**
+ * Get package popularity statistics
+ * Aggregates coin transactions to determine which package is most popular
+ */
+export const getPackagePopularity = asyncHandler(async (req, res) => {
+  const { category } = req.params;
+
+  // Map category to userType for transaction query
+  const userType = category === "jobSeeker" ? "job-seeker" : "recruiter";
+
+  console.log(`[POPULARITY] Fetching popularity for category: ${category}, userType: ${userType}`);
+
+  // Aggregate purchase transactions to count by description
+  const packageStats = await CoinTransaction.aggregate([
+    {
+      $match: {
+        transactionType: "purchase",
+        status: "success",
+        userType: userType,
+        $or: [
+          { description: { $regex: "^Coin Purchase: " } },
+          { description: { $regex: "^Purchased " } }
+        ]
+      }
+    },
+    {
+      $group: {
+        _id: "$description",
+        purchaseCount: { $sum: 1 }
+      }
+    },
+    { $sort: { purchaseCount: -1 } }
+  ]);
+
+  console.log(`[POPULARITY] Raw aggregation results:`, packageStats);
+
+  // Extract package name from description
+  const extractPackageName = (description) => {
+    if (!description) return null;
+    // "Coin Purchase: gold" -> "gold"
+    if (description.startsWith("Coin Purchase: ")) {
+      return description.replace("Coin Purchase: ", "").trim();
+    }
+    // "Purchased gold (100 coins)" -> "gold"
+    if (description.startsWith("Purchased ")) {
+      return description
+        .replace("Purchased ", "")
+        .replace(/\s*\(\d+\s*coins?\)$/i, "")
+        .trim();
+    }
+    return description;
+  };
+
+  // Create a lookup for purchase counts by package name (case-insensitive)
+  const purchaseCountByName = {};
+  for (const stat of packageStats) {
+    const packageName = extractPackageName(stat._id);
+    if (packageName) {
+      const lowerName = packageName.toLowerCase();
+      // Sum up counts for the same package name (from different description formats)
+      purchaseCountByName[lowerName] = (purchaseCountByName[lowerName] || 0) + stat.purchaseCount;
+    }
+  }
+
+  console.log(`[POPULARITY] Purchase count by name:`, purchaseCountByName);
+
+  // Find the most popular package
+  let mostPopularPackage = null;
+  let maxCount = 0;
+  for (const [name, count] of Object.entries(purchaseCountByName)) {
+    if (count > maxCount) {
+      maxCount = count;
+      mostPopularPackage = { name, purchaseCount: count };
+    }
+  }
+
+  console.log(`[POPULARITY] Most popular package:`, mostPopularPackage);
+
+  // Get all packages for this category
+  const packages = await CoinPackage.find({ category }).lean();
+
+  // Build response with purchase counts
+  const packagesWithStats = packages.map(pkg => ({
+    id: pkg._id.toString(),
+    name: pkg.name,
+    purchaseCount: purchaseCountByName[pkg.name.toLowerCase()] || 0,
+    isPopular: mostPopularPackage
+      ? pkg.name.toLowerCase() === mostPopularPackage.name.toLowerCase()
+      : false
+  }));
+
+  console.log(`[POPULARITY] Final packages with stats:`, packagesWithStats);
+
+  res.status(200).json(
+    ApiResponse.success({
+      mostPopularPackage: mostPopularPackage ? mostPopularPackage.name : null,
+      packages: packagesWithStats,
+      totalPurchases: Object.values(purchaseCountByName).reduce((sum, count) => sum + count, 0)
+    }, "Package popularity retrieved successfully")
+  );
 });

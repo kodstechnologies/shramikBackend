@@ -151,7 +151,7 @@ export const createQuestionSet = asyncHandler(async (req, res) => {
 
 export const getQuestionSets = asyncHandler(async (req, res) => {
   const questionSets = await QuestionSet.find({})
-    .populate("specializationIds", "name status skills")
+    .populate("specializationIds", "name status skills userType")
     .sort({ createdAt: -1 })
     .lean();
 
@@ -169,7 +169,7 @@ export const getQuestionSetById = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   const questionSet = await QuestionSet.findById(id)
-    .populate("specializationIds", "name status skills")
+    .populate("specializationIds", "name status skills userType")
     .lean();
   if (!questionSet) {
     throw new ApiError(404, "Question set not found");
@@ -223,8 +223,8 @@ export const updateQuestionSet = asyncHandler(async (req, res) => {
     const baseDocs = specializationDocs.length
       ? specializationDocs
       : await Specialization.find({
-          _id: { $in: questionSet.specializationIds },
-        }).select("name");
+        _id: { $in: questionSet.specializationIds },
+      }).select("name");
     const generatedName = baseDocs
       .map((doc) => doc.name)
       .filter(Boolean)

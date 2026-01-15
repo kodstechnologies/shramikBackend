@@ -55,17 +55,22 @@ export const getWebsiteTypes = asyncHandler(async (req, res) => {
 export const sendOTP = asyncHandler(async (req, res) => {
   const { phone } = req.body;
 
-  // Cross-table validation: Check if phone exists in JobSeeker table
+  // Check if phone exists in JobSeeker or Recruiter table
   const existingJobSeeker = await JobSeeker.findOne({ phone });
-  if (existingJobSeeker) {
-    throw new ApiError(400, "Invalid number");
-  }
-
-  // Check if recruiter already exists
   const existingRecruiter = await Recruiter.findOne({ phone });
 
-  // Determine OTP purpose
-  const purpose = existingRecruiter ? "login" : "registration";
+  console.log("📱 sendOTP (Recruiter) Debug:");
+  console.log("   - phone:", phone);
+  console.log("   - existingJobSeeker:", existingJobSeeker ? "YES" : "NO");
+  console.log("   - existingRecruiter:", existingRecruiter ? "YES" : "NO");
+
+  if (existingJobSeeker || existingRecruiter) {
+    console.log("   ❌ BLOCKING - This number is already registered!");
+    throw new ApiError(400, "This number is already registered");
+  }
+
+  // For new registration, purpose is always "registration"
+  const purpose = "registration";
 
   // Generate and store OTP
   const otp = await storeOTP(phone, purpose);

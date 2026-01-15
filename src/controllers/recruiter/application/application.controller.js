@@ -887,7 +887,7 @@ export const getShortlistedApplicantsForJob = asyncHandler(async (req, res) => {
     .populate({
       path: "jobSeeker",
       select:
-        "name email phone gender city state profilePhoto resume specializationId selectedSkills",
+        "name email phone gender city state profilePhoto resume specializationId selectedSkills aadhaarCard experienceCertificate documents education experienceStatus",
       populate: {
         path: "specializationId",
         select: "name skills",
