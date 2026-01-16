@@ -1527,8 +1527,8 @@ export const repostJob = asyncHandler(async (req, res) => {
   try {
     newJob = await RecruiterJob.create(newJobData);
   } catch (err) {
-    if (err.name === "ValidationError") {
-      throw new ApiError(400, `Job validation failed: ${err.message}`);
+    if (err.name === "ValidationError" || err.message?.toLowerCase().includes("validation failed")) {
+      throw new ApiError(400, err.message);
     }
     throw err;
   }

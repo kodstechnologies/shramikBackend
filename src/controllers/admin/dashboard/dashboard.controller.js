@@ -344,7 +344,13 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
     const current = new Date(effectiveStartDate);
 
     while (current <= effectiveEndDate) {
-        const dateStr = current.toISOString().split('T')[0];
+        // Use local date components to generate YYYY-MM-DD string
+        // This prevents the date from shifting back by one day due to UTC conversion (e.g. 00:00 IST -> Previous Day UTC)
+        const year = current.getFullYear();
+        const month = String(current.getMonth() + 1).padStart(2, '0');
+        const day = String(current.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+
         dates.push(dateStr);
         dateMap.set(dateStr, 0); // Initialize with 0
         current.setDate(current.getDate() + 1);
