@@ -73,7 +73,7 @@ app.use(
         "https://admin.shramikjobs.co.in",
         ...(process.env.CORS_ORIGIN?.split(",").map(o => o.trim()) || [])
       ];
-console.log(CORS_ORIGIN,);
+
 
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
