@@ -65,7 +65,7 @@ export const getTransactions = asyncHandler(async (req, res) => {
 });
 
 /**
- * Get available coin packages for purchases
+ * Get available coin packages for Purchases
  */
 export const getCoinPackages = asyncHandler(async (req, res) => {
   const packages = await CoinPackage.find({
