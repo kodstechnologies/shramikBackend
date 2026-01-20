@@ -1,46 +1,36 @@
-name: shramikBackend Deploy
+name: shramikBackend CI
 
 on:
   push:
     branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
-  deploy:
+  build:
     runs-on: self-hosted
 
+    strategy:
+      matrix:
+        node-version: [18.x]
+
     steps:
-      # 1️⃣ Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2️⃣ Install dependencies (in runner workspace)
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      # 3️⃣ Copy code to production folder (exclude junk)
-      - name: Copy code to server directory
+      - name: Create .env inside _work
         run: |
-          sudo mkdir -p /var/www/shramikBackend
-          sudo rsync -a --delete \
-            --exclude=node_modules \
-            --exclude=.git \
-            ./ /var/www/shramikBackend/
-          sudo chown -R ubuntu:ubuntu /var/www/shramikBackend
+          touch .env
+          echo "${{ secrets.backendenv }}" > .env
 
-      # 4️⃣ Create .env in production folder
-      - name: Create env file
-        run: |
-          echo "${{ secrets.BACKENDENV }}" > /var/www/shramikBackend/.env
-
-      # 5️⃣ Install dependencies in production folder
-      - name: Install prod dependencies
-        run: |
-          cd /var/www/shramikBackend
-          npm install --production
-
-      # 6️⃣ Restart backend with PM2 (safe)
       - name: Restart backend with PM2
-        run: |
-          cd /var/www/shramikBackend
-          pm2 restart shramikBackend --update-env || pm2 start server.js --name shramikBackend
-          pm2 save
+        run: pm2 restart shramikBackend
