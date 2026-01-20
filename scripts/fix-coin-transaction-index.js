@@ -10,7 +10,7 @@ async function fixCoinTransactionIndex() {
         console.log('URI:', mongoUri.substring(0, 50) + '...');
 
         await mongoose.connect(mongoUri, {
-            dbName: 'shramik' // Explicitly set database name
+            dbName: 'shramik' // Explicitly set database Name
         });
         console.log('✅ Connected to MongoDB');
 
