@@ -29,6 +29,5 @@ jobs:
       - name: Restart backend with PM2
         run: |
           cd /var/www/shramikBackend
-          pm2 start server.js --name shramikBackend || pm2 restart shramikBackend
-          pm2 save
+          pm2 restart shramikBackend
  
