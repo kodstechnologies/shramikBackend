@@ -110,16 +110,94 @@ export const getSuggestedJobs = asyncHandler(async (req, res) => {
     sortOptions[sortBy] = sortOrder === "asc" ? 1 : -1;
   }
 
-  // Fetch suggested jobs with pagination
-  const jobs = await RecruiterJob.find(filter)
-    .populate("recruiter", "companyName companyLogo city state email phone")
-    .sort(sortOptions)
-    .skip(skip)
-    .limit(limitNumber)
-    .lean();
+  // Use aggregation pipeline to filter by recruiter blocked status
+  const pipeline = [
+    // 1. Initial match for open jobs and category
+    {
+      $match: {
+        ...filter,
+        // Exclude skills filtering here if empty (though logic prevents this case)
+      }
+    },
+    // 2. Lookup recruiter to check blocked status
+    {
+      $lookup: {
+        from: "recruiters",
+        localField: "recruiter",
+        foreignField: "_id",
+        as: "recruiterDetails"
+      }
+    },
+    // 3. Unwind recruiter details (preserveNullAndEmptyArrays not needed as job MUST have recruiter)
+    {
+      $unwind: "$recruiterDetails"
+    },
+    // 4. Filter out jobs where recruiter is blocked
+    {
+      $match: {
+        "recruiterDetails.isBlocked": { $ne: true },  // Keep if not blocked or isBlocked field missing
+        "recruiterDetails.status": { $ne: "Inactive" } // Also filter inactive recruiters
+      }
+    },
+    // 5. Sort based on criteria
+    {
+      $sort: sortOptions
+    },
+    // 6. Pagination
+    {
+      $skip: skip
+    },
+    {
+      $limit: limitNumber
+    },
+    // 7. Project fields needed (and map recruiterDetails back to recruiter)
+    {
+      $project: {
+        ...Object.keys(RecruiterJob.schema.paths).reduce((acc, key) => {
+          acc[key] = 1;
+          return acc;
+        }, {}),
+        recruiter: {
+          _id: "$recruiterDetails._id",
+          companyName: "$recruiterDetails.companyName",
+          companyLogo: "$recruiterDetails.companyLogo",
+          city: "$recruiterDetails.city",
+          state: "$recruiterDetails.state",
+          email: "$recruiterDetails.email",
+          phone: "$recruiterDetails.phone"
+        }
+      }
+    }
+  ];
 
-  // Get total count
-  const totalJobs = await RecruiterJob.countDocuments(filter);
+  // Execute aggregation
+  const jobs = await RecruiterJob.aggregate(pipeline);
+
+  // Get total count (separate query for pagination metadata)
+  // We need to replicate the filter logic for count
+  const countPipeline = [
+    { $match: filter },
+    {
+      $lookup: {
+        from: "recruiters",
+        localField: "recruiter",
+        foreignField: "_id",
+        as: "recruiterDetails"
+      }
+    },
+    { $unwind: "$recruiterDetails" },
+    {
+      $match: {
+        "recruiterDetails.isBlocked": { $ne: true },
+        "recruiterDetails.status": { $ne: "Inactive" }
+      }
+    },
+    { $count: "total" }
+  ];
+
+  const countResult = await RecruiterJob.aggregate(countPipeline);
+  const totalJobs = countResult.length > 0 ? countResult[0].total : 0;
+
   const totalPages = Math.ceil(totalJobs / limitNumber);
 
   // Format jobs with summary and matched skills

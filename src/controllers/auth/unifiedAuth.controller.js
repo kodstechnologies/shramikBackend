@@ -35,10 +35,20 @@ export const sendOTP = asyncHandler(async (req, res) => {
     userType = "job-seeker";
     isExistingUser = true;
     purpose = "login";
+
+    // Check if job seeker is blocked
+    if (existingJobSeeker.isBlocked) {
+      throw new ApiError(403, "Your account has been blocked. Please contact support.");
+    }
   } else if (existingRecruiter) {
     userType = "recruiter";
     isExistingUser = true;
     purpose = "login";
+
+    // Check if recruiter is blocked
+    if (existingRecruiter.isBlocked) {
+      throw new ApiError(403, "Your account has been blocked. Please contact support.");
+    }
   } else {
     // User is not registered - reject the OTP request
     throw new ApiError(400, "This phone number is not registered. Please register first.");

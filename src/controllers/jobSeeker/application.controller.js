@@ -27,10 +27,16 @@ export const applyForJob = asyncHandler(async (req, res) => {
   }
 
   // Check if job exists and is open
-  const job = await RecruiterJob.findById(jobId);
+  // Populate recruiter to check blocked status
+  const job = await RecruiterJob.findById(jobId).populate("recruiter", "isBlocked");
 
   if (!job) {
     throw new ApiError(404, "Job not found");
+  }
+
+  // Check if recruiter is blocked
+  if (job.recruiter && job.recruiter.isBlocked) {
+    throw new ApiError(400, "Cannot apply for this job. The recruiter account has been blocked.");
   }
 
   if (job.status !== "Open") {
@@ -283,7 +289,7 @@ export const getMyApplications = asyncHandler(async (req, res) => {
       select: "jobTitle jobDescription city expectedSalary jobType employmentMode categories tags status applicationCount companySnapshot recruiter",
       populate: {
         path: "recruiter",
-        select: "companyName companyLogo city state",
+        select: "companyName companyLogo city state isBlocked",
       },
     })
     .sort({ createdAt: -1 })
@@ -299,7 +305,13 @@ export const getMyApplications = asyncHandler(async (req, res) => {
       // Map "Shortlisted" to "Accepted" for job seeker view
       // Keep "Applied" and "Pending" as separate statuses
       let displayStatus = application.status;
-      if (application.status === "Shortlisted") {
+
+      // Check if recruiter is blocked - override status to Closed
+      const isRecruiterBlocked = application.job?.recruiter?.isBlocked;
+
+      if (isRecruiterBlocked) {
+        displayStatus = "Recruiter Blocked - Job Closed";
+      } else if (application.status === "Shortlisted") {
         displayStatus = "Accepted";
       }
       // Keep "Applied" and "Pending" as is - both are valid statuses
@@ -324,12 +336,14 @@ export const getMyApplications = asyncHandler(async (req, res) => {
           companyLogo: application.job.recruiter.companyLogo || application.job.companySnapshot?.logo || "",
           city: application.job.recruiter.city || application.job.city || "",
           state: application.job.recruiter.state || "",
+          isBlocked: application.job.recruiter.isBlocked || false,
         }
         : {
           companyName: application.job?.companySnapshot?.name || "Company",
           companyLogo: application.job?.companySnapshot?.logo || "",
           city: application.job?.city || "",
           state: "",
+          isBlocked: false,
         };
 
       return {
@@ -351,7 +365,7 @@ export const getMyApplications = asyncHandler(async (req, res) => {
           employmentMode: application.job.employmentMode || "",
           categories: application.job.categories || [],
           tags: application.job.tags || [],
-          status: application.job.status || "Closed",
+          status: isRecruiterBlocked ? "Closed" : (application.job.status || "Closed"),
           applicationCount: application.job.applicationCount || 0,
           companySnapshot: application.job.companySnapshot || {},
           recruiter: recruiterInfo,

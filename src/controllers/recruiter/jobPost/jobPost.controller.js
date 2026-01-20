@@ -813,16 +813,74 @@ export const getAllJobPosts = asyncHandler(async (req, res) => {
   const coinRule = await CoinRule.findOne({ category: "jobSeeker" });
   const coinCostPerApplication = coinRule?.coinCostPerApplication || 0;
 
-  // Fetch jobs with pagination
-  const jobs = await RecruiterJob.find(filter)
-    .populate("recruiter", "companyName companyLogo city state email phone")
-    .sort(sortOptions)
-    .skip(skip)
-    .limit(limitNumber)
-    .lean();
+  // Use aggregation pipeline to filter blocked recruiters
+  const pipeline = [
+    { $match: filter },
+    {
+      $lookup: {
+        from: "recruiters",
+        localField: "recruiter",
+        foreignField: "_id",
+        as: "recruiterDetails"
+      }
+    },
+    { $unwind: "$recruiterDetails" },
+    {
+      $match: {
+        "recruiterDetails.isBlocked": { $ne: true },
+        "recruiterDetails.status": { $ne: "Inactive" }
+      }
+    },
+    { $sort: sortOptions },
+    { $skip: skip },
+    { $limit: limitNumber },
+    {
+      $project: {
+        // Include all fields from the document
+        ...Object.keys(RecruiterJob.schema.paths).reduce((acc, key) => {
+          acc[key] = 1;
+          return acc;
+        }, {}),
+        // Override recruiter field with populated details
+        recruiter: {
+          _id: "$recruiterDetails._id",
+          companyName: "$recruiterDetails.companyName",
+          companyLogo: "$recruiterDetails.companyLogo",
+          city: "$recruiterDetails.city",
+          state: "$recruiterDetails.state",
+          email: "$recruiterDetails.email",
+          phone: "$recruiterDetails.phone",
+          isBlocked: "$recruiterDetails.isBlocked"
+        }
+      }
+    }
+  ];
 
-  // Get total count for pagination
-  const totalJobs = await RecruiterJob.countDocuments(filter);
+  const jobs = await RecruiterJob.aggregate(pipeline);
+
+  // Get total count using aggregation to respect the blocked filter
+  const countPipeline = [
+    { $match: filter },
+    {
+      $lookup: {
+        from: "recruiters",
+        localField: "recruiter",
+        foreignField: "_id",
+        as: "recruiterDetails"
+      }
+    },
+    { $unwind: "$recruiterDetails" },
+    {
+      $match: {
+        "recruiterDetails.isBlocked": { $ne: true },
+        "recruiterDetails.status": { $ne: "Inactive" }
+      }
+    },
+    { $count: "total" }
+  ];
+
+  const countResult = await RecruiterJob.aggregate(countPipeline);
+  const totalJobs = countResult.length > 0 ? countResult[0].total : 0;
   const totalPages = Math.ceil(totalJobs / limitNumber);
 
   // Format jobs with summary
