@@ -29,7 +29,7 @@ jobs:
         run: |
           cd /var/www/shramikBackend
           if pm2 describe shramikBackend > /dev/null; then
-            pm2 restart sramik-backend --update-env
+            pm2 restart shramikBackend --update-env
           else
             pm2 start server.js --name shramikBackend
           fi
