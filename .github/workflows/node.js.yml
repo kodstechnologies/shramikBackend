@@ -28,10 +28,10 @@ jobs:
       - name: Start or restart backend with PM2
         run: |
           cd /var/www/shramikBackend
-          if pm2 describe sramik-backend > /dev/null; then
+          if pm2 describe shramikBackend > /dev/null; then
             pm2 restart sramik-backend --update-env
           else
-            pm2 start server.js --name sramik-backend
+            pm2 start server.js --name shramikBackend
           fi
 
       - name: Save PM2 process list
