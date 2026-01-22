@@ -87,7 +87,7 @@ export const nonDegreeRegistrationSchema = Joi.object({
     .valid("male", "female", "prefer not to say")
     .required()
     .messages({
-      "any.only": "Gender must be one of: male, female, prefer not to say",
+      "any.only": "Gender must be one of: male, female, other",
       "any.required": "Gender is required",
     }),
   dateOfBirth: Joi.date().required().messages({
@@ -140,7 +140,7 @@ export const step1RegistrationSchema = Joi.object({
     .valid("male", "female", "prefer not to say")
     .required()
     .messages({
-      "any.only": "Gender must be one of: male, female, prefer not to say",
+      "any.only": "Gender must be one of: male, female, other",
       "any.required": "Gender is required",
     }),
   dateOfBirth: Joi.date().required().messages({
@@ -313,7 +313,7 @@ export const updateJobSeekerProfileSchema = Joi.object({
     .valid("male", "female", "prefer not to say")
     .optional()
     .messages({
-      "any.only": "Gender must be one of: male, female, prefer not to say",
+      "any.only": "Gender must be one of: male, female, other",
     }),
   dateOfBirth: Joi.date().optional().messages({
     "date.base": "Please provide a valid date of birth",
