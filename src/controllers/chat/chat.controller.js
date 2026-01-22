@@ -190,7 +190,7 @@ export const sendMessage = asyncHandler(async (req, res) => {
     updatedAt: message.updatedAt,
   };
 
-  // SEND VIA SOCKET
+  // SEND VIA SOCKET + FALLBACK PUSH NOTIFICATION IF OFFLINE
   const receiverId =
     userType === "recruiter"
       ? application.jobSeeker.toString()
@@ -201,17 +201,90 @@ export const sendMessage = asyncHandler(async (req, res) => {
   console.log("   Receiver:", receiverId);
   console.log("   Online users:", Array.from(onlineUsers.keys()));
 
-  const receiverInfo = onlineUsers.get(receiverId);
+  // Check if receiver is online (try multiple ID formats for compatibility)
+  let receiverInfo = onlineUsers.get(receiverId);
+  
+  // If not found, try checking all online user keys for a match
+  if (!receiverInfo) {
+    for (const [key, value] of onlineUsers.entries()) {
+      const keyStr = key.toString();
+      const receiverIdStr = receiverId.toString();
+      
+      // Check if keys match (handles ObjectId vs string variations)
+      if (keyStr === receiverIdStr || 
+          (mongoose.Types.ObjectId.isValid(keyStr) && 
+           mongoose.Types.ObjectId.isValid(receiverIdStr) &&
+           new mongoose.Types.ObjectId(keyStr).toString() === new mongoose.Types.ObjectId(receiverIdStr).toString())) {
+        receiverInfo = value;
+        console.log("   ✅ Found receiver in onlineUsers with key:", keyStr);
+        break;
+      }
+    }
+  }
 
   if (receiverInfo) {
     // Support both old format (string) and new format (object)
-    const receiverSocketId = typeof receiverInfo === "string" ? receiverInfo : receiverInfo.socketId;
+    const receiverSocketId =
+      typeof receiverInfo === "string" ? receiverInfo : receiverInfo.socketId;
 
     io.to(receiverSocketId).emit("newMessage", formattedMessage);
     console.log("   ✅ Message emitted to socket:", receiverSocketId);
   } else {
     console.log("   ❌ Receiver is OFFLINE, message not sent via socket");
     console.log("   (Message is saved to DB, will be fetched on next load)");
+
+    // ---------------------------------------------
+    // PUSH NOTIFICATION WHEN RECEIVER IS OFFLINE
+    // ---------------------------------------------
+    try {
+      const receiverUserTypeForFcm =
+        userType === "recruiter" ? "JobSeeker" : "Recruiter";
+
+      // Get sender name for notification
+      let senderName = "";
+      if (message.senderId) {
+        if (userType === "recruiter") {
+          senderName = message.senderId.companyName || "Recruiter";
+        } else {
+          senderName = message.senderId.name || "Job Seeker";
+        }
+      }
+
+      const notificationTitle = "New chat message";
+      let notificationBody = "";
+      
+      if (content && content.trim().length > 0) {
+        const messagePreview = content.substring(0, 60);
+        notificationBody = `${senderName}: ${messagePreview}`;
+      } else {
+        notificationBody = `${senderName} sent you a message`;
+      }
+
+      const notificationResult = await fcmService.sendToUser(
+        receiverId,
+        receiverUserTypeForFcm,
+        {
+          title: notificationTitle,
+          body: notificationBody,
+          data: {
+            type: "chat_message",
+            applicationId: applicationId,
+            conversationId: conversation._id.toString(),
+          },
+        }
+      );
+
+      console.log(
+        "📲 Offline chat message notification sent:",
+        notificationResult
+      );
+    } catch (notificationError) {
+      // Don't break message flow if push notification fails
+      console.error(
+        "❌ Failed to send offline chat notification:",
+        notificationError.message
+      );
+    }
   }
   console.log("========================================\n");
 
