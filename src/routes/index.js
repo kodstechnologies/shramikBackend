@@ -75,6 +75,10 @@ router.use("/api/feedback", feedbackRoutes);
 // Common routes (Unified APIs for both user types)
 router.use("/api/common", commonRoutes);
 
+// Support Chat routes (Mobile + Admin)
+import supportChatRoutes from "./support/supportChat.routes.js";
+router.use("/api/support", supportChatRoutes);
+
 
 
 export default router;

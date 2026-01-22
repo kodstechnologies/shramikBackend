@@ -331,11 +331,51 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
     ]);
 
     // 3. Coin Metrics (transactionTypes: purchase, deduction, refund, referral)
-    const [coinPurchases, coinDeductions, coinRefunds, coinReferrals] = await Promise.all([
-        getDailyCounts(CoinTransaction, { transactionType: "purchase" }),
-        getDailyCounts(CoinTransaction, { transactionType: "deduction" }),
-        getDailyCounts(CoinTransaction, { transactionType: "refund" }),
-        getDailyCounts(CoinTransaction, { transactionType: "referral" })
+    // Helper to get daily coin sums (sum of amount field = coins)
+    const getDailyCoinSums = async (transactionType) => {
+        const pipeline = [
+            {
+                $match: {
+                    transactionType,
+                    createdAt: { $gte: effectiveStartDate, $lte: effectiveEndDate }
+                }
+            },
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    count: { $sum: "$amount" }  // Sum of coins, not transaction count
+                }
+            },
+            { $sort: { _id: 1 } }
+        ];
+        return await CoinTransaction.aggregate(pipeline);
+    };
+
+    // Helper to get daily purchase amounts (sum of price = currency)
+    const getDailyPurchaseAmounts = async () => {
+        const pipeline = [
+            {
+                $match: {
+                    transactionType: "purchase",
+                    createdAt: { $gte: effectiveStartDate, $lte: effectiveEndDate }
+                }
+            },
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    amount: { $sum: "$price" }  // Sum of currency
+                }
+            },
+            { $sort: { _id: 1 } }
+        ];
+        return await CoinTransaction.aggregate(pipeline);
+    };
+
+    const [coinPurchases, coinDeductions, coinReferrals, purchaseAmounts] = await Promise.all([
+        getDailyCoinSums("purchase"),
+        getDailyCoinSums("deduction"),
+        getDailyCoinSums("referral"),
+        getDailyPurchaseAmounts()
     ]);
 
     // Generate full date range keys
@@ -356,7 +396,7 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
         current.setDate(current.getDate() + 1);
     }
 
-    // Helper to fill data
+    // Helper to fill data (for counts)
     const fillDates = (dataArray) => {
         const resultMap = new Map(dateMap); // Copy initialized map
         dataArray.forEach(item => {
@@ -365,6 +405,28 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
             }
         });
         return Array.from(resultMap.values()); // Return counts in date order
+    };
+
+    // Helper to fill data with absolute values (for deductions - make positive)
+    const fillDatesAbsolute = (dataArray) => {
+        const resultMap = new Map(dateMap); // Copy initialized map
+        dataArray.forEach(item => {
+            if (resultMap.has(item._id)) {
+                resultMap.set(item._id, Math.abs(item.count || 0));
+            }
+        });
+        return Array.from(resultMap.values()); // Return absolute counts in date order
+    };
+
+    // Helper to fill data (for amounts)
+    const fillDatesAmount = (dataArray) => {
+        const resultMap = new Map(dateMap); // Copy initialized map
+        dataArray.forEach(item => {
+            if (resultMap.has(item._id)) {
+                resultMap.set(item._id, item.amount || 0);
+            }
+        });
+        return Array.from(resultMap.values()); // Return amounts in date order
     };
 
     return res.status(200).json(
@@ -383,8 +445,8 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
             },
             coins: {
                 purchase: fillDates(coinPurchases),
-                deduction: fillDates(coinDeductions),
-                refund: fillDates(coinRefunds),
+                purchaseAmount: fillDatesAmount(purchaseAmounts),
+                deduction: fillDatesAbsolute(coinDeductions),
                 referral: fillDates(coinReferrals)
             }
         }, "Dashboard analytics fetched successfully")

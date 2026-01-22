@@ -102,6 +102,86 @@ io.on("connection", (socket) => {
     }
   });
 
+  // ==========================================
+  // SUPPORT CHAT SOCKET EVENTS
+  // ==========================================
+
+  // Register support user (by phone for guests)
+  socket.on("registerSupport", (data) => {
+    const { phone, userType } = data;
+    if (!phone) {
+      console.log("❌ Support register failed - no phone provided");
+      return;
+    }
+    onlineUsers.set(phone, { socketId: socket.id, userType: userType || "guest" });
+    console.log("✅ Support user registered:");
+    console.log("   Phone:", phone);
+    console.log("   SocketId:", socket.id);
+    socket.emit("supportRegistered", { success: true, phone });
+  });
+
+  // Send support message via socket (real-time)
+  socket.on("sendSupportMessage", async (data) => {
+    console.log("📨 Support message received:", data);
+    const { phone, content, conversationId } = data;
+
+    // Broadcast to all admins (they don't register with specific IDs)
+    io.emit("newSupportMessage", {
+      conversationId,
+      phone,
+      message: {
+        content,
+        senderType: "user",
+        createdAt: new Date().toISOString(),
+      },
+    });
+  });
+
+  // Admin joins a conversation (opens chat with a user)
+  socket.on("adminJoinedChat", (data) => {
+    const { phone, conversationId, adminName } = data;
+    console.log("👨‍💼 Admin joined chat:", phone);
+
+    // Notify the mobile user that admin is now viewing their chat
+    const userSocket = onlineUsers.get(phone);
+    if (userSocket) {
+      io.to(userSocket.socketId).emit("adminOnline", {
+        conversationId,
+        adminName: adminName || "Support Agent",
+        message: "A support agent has joined the chat",
+        timestamp: new Date().toISOString(),
+      });
+      console.log("   ✅ Notified user:", phone);
+    } else {
+      console.log("   ℹ️ User not online:", phone);
+    }
+  });
+
+  // Admin leaves a conversation (closes chat or switches to another)
+  socket.on("adminLeftChat", (data) => {
+    const { phone, conversationId } = data;
+    console.log("👋 Admin left chat:", phone);
+
+    // Notify the mobile user that admin left
+    const userSocket = onlineUsers.get(phone);
+    if (userSocket) {
+      io.to(userSocket.socketId).emit("adminOffline", {
+        conversationId,
+        message: "Support agent left the chat",
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Admin typing indicator
+  socket.on("adminTyping", (data) => {
+    const { phone, isTyping } = data;
+    const userSocket = onlineUsers.get(phone);
+    if (userSocket) {
+      io.to(userSocket.socketId).emit("adminTyping", { isTyping });
+    }
+  });
+
   // Handle disconnect
   socket.on("disconnect", (reason) => {
     console.log("🔌 Socket disconnected:", socket.id);
