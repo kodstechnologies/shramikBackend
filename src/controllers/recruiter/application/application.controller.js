@@ -215,6 +215,24 @@ export const getJobsWithApplications = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Helper function to format date to IST (Indian Standard Time)
+ */
+const formatToIST = (date) => {
+  if (!date) return null;
+  const dateObj = new Date(date);
+  const istOptions = {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  };
+  return dateObj.toLocaleString('en-IN', istOptions);
+};
+
+/**
  * Get All Applicants for a Job (Recruiter)
  * Returns all applicants for a specific job post
  * Requires: Recruiter authentication (JWT token)
@@ -293,8 +311,8 @@ export const getJobApplicants = asyncHandler(async (req, res) => {
         status: application.status,
         coverLetter: application.coverLetter || "",
         notes: application.notes || "",
-        appliedAt: application.createdAt,
-        updatedAt: application.updatedAt,
+        appliedAt: formatToIST(application.createdAt),
+        updatedAt: formatToIST(application.updatedAt),
         jobSeeker: {
           _id: jobSeeker._id,
           name: jobSeeker.name,
