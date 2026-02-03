@@ -225,8 +225,21 @@ export const createRecruiterJob = asyncHandler(async (req, res) => {
   }
 
   // Fetch coin cost for job posting (per vacancy)
+  // Supports category-wise pricing for different job seeker categories
   const coinRule = await CoinRule.findOne({ category: "recruiter" });
-  const coinCostPerJobPost = coinRule?.coinCostPerJobPost || 0;
+
+  // Get category-specific coin cost, fallback to default if not set
+  let coinCostPerJobPost = 0;
+  if (coinRule) {
+    // Check if category-wise pricing is set for this job's category
+    const categoryWiseCost = coinRule.coinCostPerJobPostByCategory?.[jobSeekerCategory];
+    if (categoryWiseCost !== undefined && categoryWiseCost > 0) {
+      coinCostPerJobPost = categoryWiseCost;
+    } else {
+      // Fallback to default flat rate
+      coinCostPerJobPost = coinRule.coinCostPerJobPost || 0;
+    }
+  }
 
   // Calculate total coin cost based on vacancy count
   const totalCoinCost = coinCostPerJobPost * (vacancyCount || 1);

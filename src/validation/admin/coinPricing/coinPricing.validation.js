@@ -39,6 +39,12 @@ export const coinRuleSchema = Joi.object({
   coinCostPerApplication: Joi.number().min(0).optional(),
   coinPerEmployeeCount: Joi.number().min(0).optional(),
   coinCostPerJobPost: Joi.number().min(0).optional(),
+  // Category-wise coin cost for job posting
+  coinCostPerJobPostByCategory: Joi.object({
+    "Non-Degree Holder": Joi.number().min(0).optional(),
+    "Diploma Holder": Joi.number().min(0).optional(),
+    "ITI Holder": Joi.number().min(0).optional(),
+  }).optional(),
   referralSettings: Joi.object({
     isEnabled: Joi.boolean().optional(),
     referrerCoins: Joi.number().min(0).optional(),

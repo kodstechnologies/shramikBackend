@@ -4,6 +4,9 @@ const { Schema, model } = mongoose;
 
 export const COIN_PRICING_CATEGORIES = ["jobSeeker", "recruiter"];
 
+// Job seeker categories for category-wise pricing
+export const JOB_SEEKER_CATEGORIES = ["Non-Degree Holder", "Diploma Holder", "ITI Holder"];
+
 const coinPackageSchema = new Schema(
   {
     category: {
@@ -69,11 +72,31 @@ const coinRuleSchema = new Schema(
       default: 0,
       min: 0,
     },
-    // For recruiters
+    // For recruiters - default flat rate (fallback)
     coinCostPerJobPost: {
       type: Number,
       default: 0,
       min: 0,
+    },
+
+    // Category-wise coin cost for job posting (recruiter)
+    // Allows different pricing for Non-Degree Holder, ITI Holder, Diploma Holder
+    coinCostPerJobPostByCategory: {
+      "Non-Degree Holder": {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+      "Diploma Holder": {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+      "ITI Holder": {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
     },
 
     // Referral Settings (Admin controlled)

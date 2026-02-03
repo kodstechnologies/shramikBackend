@@ -23,6 +23,12 @@ const mapRule = (rule) => ({
   coinCostPerApplication: rule?.coinCostPerApplication ?? 0,
   coinPerEmployeeCount: rule?.coinPerEmployeeCount ?? 0,
   coinCostPerJobPost: rule?.coinCostPerJobPost ?? 0,
+  // Category-wise coin cost for job posting
+  coinCostPerJobPostByCategory: {
+    "Non-Degree Holder": rule?.coinCostPerJobPostByCategory?.["Non-Degree Holder"] ?? 0,
+    "Diploma Holder": rule?.coinCostPerJobPostByCategory?.["Diploma Holder"] ?? 0,
+    "ITI Holder": rule?.coinCostPerJobPostByCategory?.["ITI Holder"] ?? 0,
+  },
   referralSettings: {
     isEnabled: rule?.referralSettings?.isEnabled ?? true,
     referrerCoins: rule?.referralSettings?.referrerCoins ?? 50,
@@ -156,7 +162,7 @@ export const deleteCoinPackage = asyncHandler(async (req, res) => {
 
 export const updateCoinRules = asyncHandler(async (req, res) => {
   const { category } = req.params;
-  const { baseAmount, baseCoins, coinCostPerApplication, coinPerEmployeeCount, coinCostPerJobPost, referralSettings } = req.body;
+  const { baseAmount, baseCoins, coinCostPerApplication, coinPerEmployeeCount, coinCostPerJobPost, coinCostPerJobPostByCategory, referralSettings } = req.body;
 
   console.log(`[COIN_RULES_UPDATE] Category: ${category}`);
   console.log(`[COIN_RULES_UPDATE] Request Body:`, req.body);
@@ -176,6 +182,22 @@ export const updateCoinRules = asyncHandler(async (req, res) => {
   if (coinCostPerApplication !== undefined) rule.coinCostPerApplication = coinCostPerApplication;
   if (coinPerEmployeeCount !== undefined) rule.coinPerEmployeeCount = coinPerEmployeeCount;
   if (coinCostPerJobPost !== undefined) rule.coinCostPerJobPost = coinCostPerJobPost;
+
+  // Update category-wise coin cost for job posting
+  if (coinCostPerJobPostByCategory !== undefined) {
+    if (!rule.coinCostPerJobPostByCategory) {
+      rule.coinCostPerJobPostByCategory = {};
+    }
+    if (coinCostPerJobPostByCategory["Non-Degree Holder"] !== undefined) {
+      rule.coinCostPerJobPostByCategory["Non-Degree Holder"] = coinCostPerJobPostByCategory["Non-Degree Holder"];
+    }
+    if (coinCostPerJobPostByCategory["Diploma Holder"] !== undefined) {
+      rule.coinCostPerJobPostByCategory["Diploma Holder"] = coinCostPerJobPostByCategory["Diploma Holder"];
+    }
+    if (coinCostPerJobPostByCategory["ITI Holder"] !== undefined) {
+      rule.coinCostPerJobPostByCategory["ITI Holder"] = coinCostPerJobPostByCategory["ITI Holder"];
+    }
+  }
 
   // Update referral settings
   if (referralSettings !== undefined) {
