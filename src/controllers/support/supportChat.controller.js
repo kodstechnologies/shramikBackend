@@ -8,6 +8,22 @@ import { io, onlineUsers } from "../../../server.js";
 // Auto-greeting message for new conversations
 const AUTO_GREETING = "Hello! Welcome to Shramik Support. How can we help you today?";
 
+// Helper function to normalize userType (handle kebab-case from mobile clients)
+const normalizeUserType = (userType) => {
+    if (!userType) return "guest";
+
+    // Map kebab-case to camelCase
+    const typeMap = {
+        "job-seeker": "jobSeeker",
+        "jobseeker": "jobSeeker",
+        "jobSeeker": "jobSeeker",
+        "recruiter": "recruiter",
+        "guest": "guest"
+    };
+
+    return typeMap[userType.toLowerCase()] || "guest";
+};
+
 /**
  * MOBILE API: Send message OR start conversation
  * POST /api/support/message
@@ -54,7 +70,7 @@ export const sendMessage = asyncHandler(async (req, res) => {
             conversation = await SupportConversation.create({
                 phone,
                 userName: userName || "Guest",
-                userType: userType || "guest",
+                userType: normalizeUserType(userType),
                 status: "active",
             });
             isNewConversation = true;
@@ -155,7 +171,7 @@ export const startConversation = asyncHandler(async (req, res) => {
         conversation = await SupportConversation.create({
             phone,
             userName: userName || "Guest",
-            userType: userType || "guest",
+            userType: normalizeUserType(userType),
             status: "active",
         });
         isNewConversation = true;

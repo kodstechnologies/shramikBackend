@@ -3,6 +3,7 @@ import ApiError from "../../utils/ApiError.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { RecruiterJob } from "../../models/recruiter/jobPost/jobPost.model.js";
 import { Application } from "../../models/jobSeeker/application.model.js";
+import { CoinRule } from "../../models/admin/coinPricing/coinPricing.model.js";
 
 /**
  * Get Suggested Jobs For Job Seeker
@@ -57,6 +58,10 @@ export const getSuggestedJobs = asyncHandler(async (req, res) => {
     status: "Open", // Only show open jobs
     jobSeekerCategory: jobSeeker.category, // Only show jobs for this job seeker's category
   };
+
+  // Get coin cost per application from CoinRule
+  const coinRule = await CoinRule.findOne({ category: "jobSeeker" }).lean();
+  const coinCostPerApplication = coinRule?.coinCostPerApplication || 0;
 
   // Get jobs the user has already applied for and exclude them
   const appliedApplications = await Application.find(
@@ -239,6 +244,7 @@ export const getSuggestedJobs = asyncHandler(async (req, res) => {
       recruiter: job.recruiter,
       status: job.status,
       applicationCount: job.applicationCount,
+      coinCostPerApplication, // Coin cost to apply for this job
       createdAt: job.createdAt,
       updatedAt: job.updatedAt,
       summary: {
@@ -268,6 +274,7 @@ export const getSuggestedJobs = asyncHandler(async (req, res) => {
         },
         userSkills: normalizedUserSkills, // Include user's skills in response
         matchedSkillsCount: normalizedUserSkills.length,
+        coinCostPerApplication, // Coin cost to apply for a job
       },
       `Found ${totalJobs} suggested job${totalJobs !== 1 ? "s" : ""} based on your skills`
     )

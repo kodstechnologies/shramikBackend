@@ -25,7 +25,7 @@ const supportConversationSchema = new Schema(
         // User type
         userType: {
             type: String,
-            enum: ["jobSeeker", "recruiter", "guest"],
+            enum: ["jobSeeker", "recruiter", "guest", "job-seeker"],
             default: "guest",
         },
         // User name for display
