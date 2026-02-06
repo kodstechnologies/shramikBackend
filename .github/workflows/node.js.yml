@@ -1,37 +1,58 @@
-name: shramikBackend CI
+name: Deploy Shramik Backend to EC2
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
-  build:
-    runs-on: self-hosted
-
-    strategy:
-      matrix:
-        node-version: [18.x]
+  deploy:
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Create .env inside _work
+      - name: Setup SSH
         run: |
-          echo "${{ secrets.backendenv }}" > .env
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_KEY }}" > ~/.ssh/ec2_key.pem
+          chmod 600 ~/.ssh/ec2_key.pem
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Start or restart backend with PM2
+      - name: Upload backend code to EC2
         run: |
-          pm2 restart shramikBackend
+          rsync -avz --delete \
+          --exclude=node_modules \
+          --exclude=.git \
+          ./ \
+          ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/shramikBackend
+
+      - name: Create .env file on EC2
+        run: |
+          ssh -i ~/.ssh/ec2_key.pem \
+          ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          cd /home/ubuntu/shramikBackend
+          echo "${{ secrets.BACKENDENV }}" > .env
+          sudo chown ubuntu:ubuntu .env
+          EOF
+
+      - name: Install dependencies & restart backend
+        run: |
+          ssh -i ~/.ssh/ec2_key.pem \
+          ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          cd /home/ubuntu/shramikBackend
+
+          npm install
+
+          # PM2 setup
+          if ! command -v pm2 &> /dev/null
+          then
+            sudo npm install -g pm2
+          fi
+
+          pm2 stop shramik-backend || true
+          pm2 delete shramik-backend || true
+          pm2 start server.js --name shramik-backend
           pm2 save
+          EOF
