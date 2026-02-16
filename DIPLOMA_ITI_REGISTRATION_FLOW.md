@@ -61,7 +61,7 @@ The registration for **Diploma Holder** and **ITI Holder** is a **multi-step pro
         }
       ]
       ```
-    - `role` (optional) - "Worker", "Contractor", "Admin" (default: "Worker")
+    - `role` (optional) - "WOrker", "Contractor", "Admin" (default: "Worker")
   - **Validations**:
     - ✅ Phone must be verified
     - ✅ `registrationStep >= 2` (must complete Step 1 first)
