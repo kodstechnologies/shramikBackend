@@ -3,7 +3,7 @@ import axios from "axios";
 const DEFAULT_SMS_BASE_URL = "https://smsapi.edumarcsms.com/api/v1/sendsms";
 const DEFAULT_OTP_MESSAGE =
   "Dear User, your OTP for login to SHRAMIK JOBING SOLUTIONS is {#var#}. Do not share this OTP with anyone.";
-// Change this value directly in code when needed: "demo" | "dlt"
+// Change this  value directly in code when needed: "demo" | "dlt"
 const SMS_MODE = "dlt";
 
 const getSmsMode = () => {
