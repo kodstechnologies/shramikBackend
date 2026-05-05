@@ -72,7 +72,6 @@ const conversationSchema = new Schema(
 // Compound indexes for efficient queries
 conversationSchema.index({ recruiter: 1, status: 1 });
 conversationSchema.index({ jobSeeker: 1, status: 1 });
-conversationSchema.index({ application: 1 }, { unique: true }); // One conversation per application
 conversationSchema.index({ job: 1, recruiter: 1, jobSeeker: 1 });
 
 export const Conversation = model("Conversation", conversationSchema);

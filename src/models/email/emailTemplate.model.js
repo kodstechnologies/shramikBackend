@@ -98,7 +98,6 @@ const emailTemplateSchema = new Schema(
 );
 
 // Indexes
-emailTemplateSchema.index({ name: 1 });
 emailTemplateSchema.index({ category: 1 });
 emailTemplateSchema.index({ targetAudience: 1 });
 emailTemplateSchema.index({ isActive: 1 });

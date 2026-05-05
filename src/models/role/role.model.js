@@ -54,8 +54,6 @@ const roleSchema = new Schema(
   { timestamps: true }
 );
 
-roleSchema.index({ name: 1 }, { unique: true });
-roleSchema.index({ value: 1 }, { unique: true });
 roleSchema.index({ status: 1 });
 
 export const Role = model("Role", roleSchema);

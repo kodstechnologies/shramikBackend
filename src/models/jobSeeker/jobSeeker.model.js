@@ -221,7 +221,6 @@ const jobSeekerSchema = new Schema(
 );
 
 // Indexes
-jobSeekerSchema.index({ phone: 1 });
 jobSeekerSchema.index({ category: 1 });
 jobSeekerSchema.index({ specializationId: 1 });
 jobSeekerSchema.index({ status: 1 });

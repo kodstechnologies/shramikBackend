@@ -67,7 +67,6 @@ const referralSchema = new Schema(
 
 // Indexes for efficient queries
 referralSchema.index({ referrer: 1, createdAt: -1 });
-referralSchema.index({ referee: 1 });
 referralSchema.index({ status: 1 });
 
 export const Referral = model("Referral", referralSchema);

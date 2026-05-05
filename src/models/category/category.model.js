@@ -34,7 +34,6 @@ const categorySchema = new Schema(
   }
 );
 
-categorySchema.index({ name: 1 }, { unique: true });
 categorySchema.index({ status: 1 });
 
 export const Category = model("Category", categorySchema);

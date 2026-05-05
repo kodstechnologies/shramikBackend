@@ -73,7 +73,7 @@ questionSetSchema.pre("save", function (next) {
   next();
 });
 
-questionSetSchema.index({ name: 1 }, { unique: true });
+
 
 export const QuestionSet = model("QuestionSet", questionSetSchema);
 

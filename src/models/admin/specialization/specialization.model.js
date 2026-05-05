@@ -38,7 +38,7 @@ const specializationSchema = new Schema(
   }
 );
 
-specializationSchema.index({ name: 1 }, { unique: true });
+
 
 export const Specialization = model("Specialization", specializationSchema);
 

@@ -10,7 +10,6 @@ const recruiterSchema = new Schema(
       required: true,
       unique: true,
       trim: true,
-      index: true,
     },
     phoneVerified: {
       type: Boolean,
@@ -153,7 +152,6 @@ const recruiterSchema = new Schema(
 );
 
 // Indexes
-recruiterSchema.index({ phone: 1 });
 recruiterSchema.index({ status: 1 });
 
 export const Recruiter = model("Recruiter", recruiterSchema);

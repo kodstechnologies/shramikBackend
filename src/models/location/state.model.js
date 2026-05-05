@@ -41,8 +41,6 @@ const stateSchema = new Schema(
   }
 );
 
-stateSchema.index({ name: 1 }, { unique: true });
-stateSchema.index({ code: 1 }, { unique: true });
 stateSchema.index({ status: 1 });
 
 export const State = model("State", stateSchema);
