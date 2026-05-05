@@ -17,6 +17,7 @@ import { Referral } from "../../models/referral/referral.model.js";
 import { CoinRule } from "../../models/admin/coinPricing/coinPricing.model.js";
 import { addCoins } from "../../services/coin/coinService.js";
 import { createPendingReferral } from "../../services/referral/referralService.js";
+import { sendOtpSMS } from "../../services/smsService.js";
 
 /**
  * Website Types - Supported URL protocols
@@ -75,7 +76,13 @@ export const sendOTP = asyncHandler(async (req, res) => {
   // Generate and store OTP
   const otp = await storeOTP(phone, purpose);
 
-  // In production, send OTP via SMS service here
+  try {
+    await sendOtpSMS({ number: phone, otp });
+  } catch (smsError) {
+    console.error("sendOTP (Recruiter) SMS sending failed:", smsError.message);
+    throw new ApiError(500, "Failed to send OTP SMS");
+  }
+
   console.log(`OTP for ${phone} (${purpose}): ${otp}`);
 
   const shouldReturnOTP =
@@ -720,4 +727,3 @@ export const updateRecruiterProfile = asyncHandler(async (req, res) => {
     )
   );
 });
-

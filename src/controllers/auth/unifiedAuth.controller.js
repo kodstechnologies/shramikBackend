@@ -9,6 +9,7 @@ import {
   generateRefreshToken,
 } from "../../utils/jwtToken.js";
 import { generateUniqueReferralCode } from "../../utils/referralCode.js";
+import { sendOtpSMS } from "../../services/smsService.js";
 
 /**
  * Unified Send OTP - Automatically detects user type (job-seeker or recruiter)
@@ -57,7 +58,13 @@ export const sendOTP = asyncHandler(async (req, res) => {
   // Generate and store OTP
   const otp = await storeOTP(phone, purpose);
 
-  // In production, send OTP via SMS service here
+  try {
+    await sendOtpSMS({ number: phone, otp });
+  } catch (smsError) {
+    console.error("sendOTP (UnifiedAuth) SMS sending failed:", smsError.message);
+    throw new ApiError(500, "Failed to send OTP SMS");
+  }
+
   console.log(`OTP for ${phone} (${purpose}, userType: ${userType || 'unknown'}): ${otp}`);
 
   const shouldReturnOTP =

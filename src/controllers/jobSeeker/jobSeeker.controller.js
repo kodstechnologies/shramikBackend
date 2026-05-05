@@ -17,6 +17,7 @@ import { Referral } from "../../models/referral/referral.model.js";
 import { CoinRule } from "../../models/admin/coinPricing/coinPricing.model.js";
 import { addCoins } from "../../services/coin/coinService.js";
 import { createPendingReferral } from "../../services/referral/referralService.js";
+import { sendOtpSMS } from "../../services/smsService.js";
 
 /**
  * Send OTP for mobile verification
@@ -89,8 +90,13 @@ export const sendOTP = asyncHandler(async (req, res) => {
   // Generate and store OTP
   const otp = await storeOTP(phone, purpose);
 
-  // In production, send OTP via SMS service here
-  // For now, we'll return it in response for testing
+  try {
+    await sendOtpSMS({ number: phone, otp });
+  } catch (smsError) {
+    console.error("sendOTP (JobSeeker) SMS sending failed:", smsError.message);
+    throw new ApiError(500, "Failed to send OTP SMS");
+  }
+
   console.log(`OTP for ${phone} (${purpose}): ${otp}`);
 
   // Return OTP if:

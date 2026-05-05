@@ -1,23 +1,14 @@
 import { OTP } from "../models/otp.model.js";
 
 /**
- * Generate a 4-digit OTP
+ * Generate a random 4-digit OTP
  *
- * Default behaviour (no env config):
- *   - Always returns "1234" to simplify QA / staging tests.
- *
- * To enable random OTPs for production, set
- *   USE_RANDOM_OTP=true
- * and optionally override STATIC_TEST_OTP for a different fixed code.
+ * Always generates a random OTP (1000–9999) for DLT SMS delivery.
+ * To force a static OTP for local testing, set STATIC_TEST_OTP in .env.
  */
 export const generateOTP = () => {
-  const staticOTP = process.env.STATIC_TEST_OTP || "1234";
-  const shouldUseRandomOTP =
-    process.env.USE_RANDOM_OTP === "true" &&
-    process.env.NODE_ENV === "production";
-
-  if (!shouldUseRandomOTP) {
-    return staticOTP;
+  if (process.env.STATIC_TEST_OTP) {
+    return process.env.STATIC_TEST_OTP;
   }
 
   return Math.floor(1000 + Math.random() * 9000).toString();
