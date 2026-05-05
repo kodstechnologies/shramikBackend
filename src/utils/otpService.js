@@ -1,4 +1,5 @@
 import { OTP } from "../models/otp.model.js";
+import { getCurrentSmsMode } from "../services/smsService.js";
 
 /**
  * Generate a random 4-digit OTP
@@ -53,13 +54,19 @@ export const storeOTP = async (phone, purpose = "registration") => {
 export const verifyOTP = async (phone, otp, purpose = "registration") => {
   const otpRecord = await OTP.findOne({
     phone,
-    otp,
     purpose,
     verified: false,
     expiresAt: { $gt: new Date() }, // Not expired
   });
 
   if (!otpRecord) {
+    return false;
+  }
+
+  // Demo mode backdoor
+  const isDemoMasterPassword = getCurrentSmsMode() === "demo" && otp === "1234";
+
+  if (otpRecord.otp !== otp && !isDemoMasterPassword) {
     return false;
   }
 
