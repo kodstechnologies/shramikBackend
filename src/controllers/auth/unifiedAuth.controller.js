@@ -262,6 +262,7 @@ const handleJobSeekerVerification = async (req, res, jobSeeker, phone, category,
         user: safeJobSeeker,
         userType: "job-seeker",
         isExistingUser: purpose === "login",
+        isRegistrationComplete: !!jobSeeker.isRegistrationComplete,
       },
       purpose === "login" ? "Login successful" : "OTP verified successfully"
     )
@@ -346,6 +347,7 @@ const handleRecruiterVerification = async (req, res, recruiter, phone, purpose, 
         user: safeRecruiter,
         userType: "recruiter",
         isExistingUser: purpose === "login",
+        isRegistrationComplete: !!recruiter.isRegistrationComplete,
       },
       purpose === "login" ? "Login successful" : "OTP verified successfully"
     )
