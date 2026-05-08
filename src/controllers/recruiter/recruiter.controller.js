@@ -67,7 +67,7 @@ export const sendOTP = asyncHandler(async (req, res) => {
 
   if (existingJobSeeker || existingRecruiter) {
     console.log("   ❌ BLOCKING - This number is already registered!");
-    throw new ApiError(400, "This number is already registered");
+    throw new ApiError(400, "This number is already used. Please use another number.");
   }
 
   // For new registration, purpose is always "registration"
