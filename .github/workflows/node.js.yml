@@ -16,9 +16,9 @@ jobs:
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.AZURE_VM_KEY }}" > ~/.ssh/azure_key.pem
+          echo "${{ secrets.EC2_KEY }}" > ~/.ssh/azure_key.pem
           chmod 600 ~/.ssh/azure_key.pem
-          ssh-keyscan -H ${{ secrets.AZURE_VM_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
       - name: Upload backend using rsync
         run: |
@@ -27,12 +27,12 @@ jobs:
             --exclude=node_modules \
             --exclude=.git \
             ./ \
-            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }}:/home/azureuser/shramikBackend
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/azureuser/shramikBackend
 
       - name: Create .env file on Azure VM
         run: |
           ssh -i ~/.ssh/azure_key.pem \
-            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             cd /home/azureuser/shramikBackend
             echo "${{ secrets.BACKENDENV }}" > .env
             chmod 600 .env
@@ -41,7 +41,7 @@ jobs:
       - name: Install dependencies & restart backend
         run: |
           ssh -i ~/.ssh/azure_key.pem \
-            ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             cd /home/azureuser/shramikBackend
 
             npm install
