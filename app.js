@@ -102,7 +102,7 @@ app.use("/", routes);
 app.get("/test", (req, res) => {
   res.json({
     success: true,
-    message: "Serverr is working!",
+    message: "Server is working!",
     timestamp: new Date().toISOString(),
   });
 });
