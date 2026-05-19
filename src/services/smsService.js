@@ -135,4 +135,7 @@ export const sendOtpSMS = async ({ number, otp }) => {
   return sendSMS({ number, message });
 };
 
-export const getCurrentSmsMode = () => getSmsMode();
+export const getCurrentSmsMode = () => {
+  // Temporary section to allow OTP verification in DLT and also 1234(demo)
+  return "demo";
+};
